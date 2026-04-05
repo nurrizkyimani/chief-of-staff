@@ -1,6 +1,6 @@
 ---
 title: RFC-001 - OpenClaw Telegram Receipt Assistant
-date: 2026-04-04
+date: 2026-04-05
 status: Draft
 owner: nurrizky
 ---
@@ -34,18 +34,32 @@ Out of scope for M1:
 - automatic budget alerts
 - advanced tax reconciliation beyond printed values
 
+### 2.1 User prerequisites (quick checklist)
+Before implementation, you (the operator) need accounts, credentials, and a few manual steps. **Full step-by-step detail is in section 22.**
+
+| What | Why |
+| --- | --- |
+| **OpenAI Platform account** + **API key** + **billing** | Vision + structured parsing via API (usage-based; separate from ChatGPT subscription). |
+| **Google account** + **Google Cloud project** + **Sheets API** + **service account JSON** | Append rows to your spreadsheet via the Sheets API. |
+| **Google Sheet** created by you, tabs `receipts_raw` + `monthly_breakdown`, **shared with the service account email** | API can only write if the SA has Editor access. |
+| **Telegram bot** from **@BotFather** + **bot token** | Inbound receipt photos/PDFs. |
+| **OpenClaw** installed/configured with Telegram channel + **pairing** | Gateway receives Telegram messages. |
+| **(Recommended)** **Docker + Colima** on macOS | Matches M1 local sandbox strategy (section 18). |
+
 ## 3) Receipt Parsing Design
 
 ### 3.1 Architecture
 ```text
 Telegram User
   -> OpenClaw Telegram Channel
-  -> Receipt Intake Skill (MVP: /receipt command)
+  -> Receipt hook (message:preprocessed) filters /receipt + media
   -> OCR/Vision + LLM Structured Parser
   -> JSON Schema Validator
-  -> Google Sheets Append (receipts_raw)
+  -> Google Sheets Append (receipts_raw), idempotent by receipt_id
   -> Telegram confirmation response
 ```
+
+**M1 integration mechanism (locked):** implement as an **OpenClaw internal hook** (see section 23), not a separate Telegram webhook server. The `SKILL.md` under `assistants/receipt-assistant/` documents behavior for the agent; the **executable** path is the hook handler calling the pipeline.
 
 ### 3.2 Parsing rules
 - Parse from printed labels and values first.
@@ -60,6 +74,18 @@ Telegram User
 - Keep original tax text in `tax_label_raw`.
 - Do not overwrite explicit printed tax values with guessed calculations.
 - If key fields are uncertain/missing, set `needs_review=true` and keep payload in `raw_json`.
+
+### 3.3 Trigger semantics (M1 locked)
+- **Primary trigger:** user sends the **`/receipt`** command **in the same message as** a receipt **photo or document** (PDF/image), or replies to a prior message (implementation may support “reply to media” in a follow-up; if not supported in M1, document that limitation).
+- **Do not** auto-parse every random photo in chat: that increases cost, false positives, and attack surface.
+- **Albums:** if the user sends **multiple photos in one album**, M1 treats **each file as its own receipt** (one row per file, distinct `message_id` / Telegram file id in metadata as needed). If only one combined parse is desired, that is **out of scope for M1** (user sends one receipt per message or one file per message).
+- **PDFs:** download file → convert to **one or more raster images** (first page minimum; cap pages, e.g. max 2–3 for M1) before vision. Document the chosen library or external tool in the implementation README.
+
+### 3.4 OpenClaw wiring (summary; detail in section 23)
+- Subscribe the hook to **`message:preprocessed`** so the body/media pipeline is complete (`context.bodyForAgent` / enriched content per OpenClaw hooks docs).
+- Register the hook via **`hooks.internal.load.extraDirs`** pointing at `openclaw-platform/hooks/` (or enable **workspace hooks** under the agent workspace and list the hook explicitly—workspace hooks are **disabled by default** until config enables them).
+- Filter inside the handler: channel is Telegram, text contains `/receipt`, attachment present.
+- **Restart the gateway** after hook or config changes.
 
 ## 4) M1 JSON Contract (`receipt.v1.1`)
 
@@ -99,24 +125,42 @@ Rule precedence is exactly the order above.
 
 ## 6) Google Sheets Design (Same Spreadsheet File)
 
+**Manual setup:** create an empty spreadsheet (or use an existing one). Add tabs named exactly `receipts_raw` and `monthly_breakdown`. In row 1 of `receipts_raw`, add the column headers below (implementation may create headers programmatically once, but M1 assumes the tab exists). **Share the spreadsheet with the service account client email** (from the JSON: `client_email`) with **Editor** access, or writes will fail.
+
 ### 6.1 Sheet A: `receipts_raw` (append-only)
-Columns:
-1. `receipt_id`
-2. `message_id`
-3. `merchant_name`
-4. `receipt_date`
-5. `total_amount`
-6. `tax_amount`
-7. `classification`
-8. `currency`
-9. `confidence`
+Columns (aligned with `receipt.v1.1`; `monthly_breakdown` still uses A–G only):
+
+| Col | Header | Notes |
+| --- | --- | --- |
+| A | `receipt_id` | Unique key for idempotency |
+| B | `message_id` | Telegram message id |
+| C | `merchant_name` | |
+| D | `receipt_date` | `YYYY-MM-DD` |
+| E | `total_amount` | Numeric |
+| F | `tax_amount` | Numeric |
+| G | `classification` | |
+| H | `currency` | Default `IDR` |
+| I | `confidence` | 0–1 |
+| J | `needs_review` | `TRUE`/`FALSE` or `yes`/`no` (pick one convention and stick to it) |
+| K | `tax_label_raw` | Free text |
+| L | `month_key` | `YYYY-MM` (redundant with D but useful for filters) |
+| M | `raw_json` | **Stringified JSON** of `raw_json` (truncate if near cell size limits; full payload must still appear in logs—section 25) |
 
 Write method:
 - `spreadsheets.values.append`
 - `valueInputOption=USER_ENTERED`
+- Append range: `receipts_raw!A:M` (header row excluded from append range if row 1 is headers)
 
-Idempotency:
-- Do not append duplicates for same `receipt_id`.
+Idempotency (M1 algorithm):
+1. Before append, call **`spreadsheets.values.get`** on `receipts_raw!A:A` (or batch read with a reasonable row window if the sheet is huge) and check whether `receipt_id` already exists.
+2. If duplicate → **skip append** and return a Telegram message: “Already recorded (`receipt_id`).”
+3. **Race window:** two parallel requests could still double-append in theory; M1 accepts this low risk, or a later milestone adds a stronger lock (e.g. external store). Document in ops if duplicates appear.
+
+### 6.1.1 Google Cloud / Sheets API prerequisites
+- Create a **Google Cloud project** (free tier is fine for personal use; billing may be required depending on GCP policy).
+- **Enable** the **Google Sheets API** for that project.
+- Create a **service account**, grant a minimal role for Sheets (custom role with only what you need, or Editor on the single sheet via sharing—not project-wide Owner unless you accept that).
+- Create and download a **JSON key**; path → `GOOGLE_APPLICATION_CREDENTIALS`.
 
 ### 6.2 Sheet B: `monthly_breakdown`
 Monthly totals by classification, from `receipts_raw`.
@@ -141,7 +185,7 @@ M1 is complete when:
   - OpenAI API account
   - API key
   - key configured in OpenClaw environment (example: `OPENAI_API_KEY`)
-  - a vision-capable model configured in OpenClaw
+  - a **vision-capable** model path for receipt images (confirm in current OpenAI docs that **`gpt-4.1-mini`** supports image inputs for your chosen API; if not, adjust M1 model in config **before** locking production—this RFC assumes vision works for the locked model).
 - ChatGPT subscription is not required for API usage; API billing is separate usage-based billing.
 
 ## 9) Repository + Install Strategy (Locked)
@@ -152,8 +196,8 @@ Repository structure decision:
 - `openclaw-platform/` for OpenClaw runtime/config/integration code
 
 Install strategy decision:
-- Do not install OpenClaw globally.
-- Install OpenClaw project-locally inside `openclaw-platform/` for reproducibility and easier upgrades.
+- Prefer **project-local** OpenClaw: add it as a **dependency** in `openclaw-platform/package.json` (exact version pinned) and invoke via **`npx openclaw ...`** from `openclaw-platform/`, **or** use whatever install path the official docs recommend for reproducible CLI **without** relying on a mutable global `openclaw` on `$PATH`.
+- The **`curl | bash`** installer (section 20) is acceptable **only** if you verify where the binary lands and you still set **`OPENCLAW_HOME`** under `openclaw-platform/` so state is project-local; otherwise prefer `npm`/`pnpm` install into the repo.
 
 Where receipt assistant code goes:
 - Receipt assistant behavior, prompts, skill/hook logic: under `openclaw-platform/`
@@ -198,6 +242,7 @@ Minimum accuracy:
 - Classification taxonomy updated to: `food|mobility|groceries|nonfood|subscription`.
 - Sandbox direction fixed to local `Docker + Colima` with parity-first rollout.
 - Parity requirement fixed: normal commands and intended receipt behavior must remain unchanged between non-sandbox and sandbox mode.
+- 2026-04-05: RFC expanded with user account checklist, OpenClaw hook-based integration (`message:preprocessed`), locked `/receipt` trigger, `receipts_raw` columns A–M, idempotency algorithm, PDF/album notes, sandbox egress allowlist, failure-mode UX, observability, and executability notes.
 
 ## 13) References
 - OpenClaw Getting Started: https://docs.openclaw.ai/start/getting-started
@@ -206,6 +251,8 @@ Minimum accuracy:
 - OpenClaw Hooks: https://docs.openclaw.ai/automation/hooks
 - Telegram Bot API: https://core.telegram.org/bots/api
 - Google Sheets `spreadsheets.values.append`: https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/append
+- Google Sheets API overview (enable API, quotas): https://developers.google.com/workspace/sheets/api/guides/concepts
+- OpenClaw docs index (`llms.txt`): https://docs.openclaw.ai/llms.txt
 - UU No. 1 Tahun 2022 (HKPD): https://peraturan.go.id/files/uu1-2022bt.pdf
 - OpenAI API Pricing: https://openai.com/api/pricing/
 
@@ -227,9 +274,10 @@ chief-of-staff/
 |   |   |-- openclaw.config.json
 |   |   `-- providers.json
 |   |
-|   |-- channels/
-|   |   `-- telegram/
-|   |       `-- webhook_handler.ts
+|   |-- hooks/
+|   |   `-- receipt-intake/
+|   |       |-- HOOK.md
+|   |       `-- handler.ts
 |   |
 |   |-- assistants/
 |   |   `-- receipt-assistant/
@@ -254,9 +302,6 @@ chief-of-staff/
 |   |-- pipelines/
 |   |   `-- receipt_pipeline.ts
 |   |
-|   |-- hooks/
-|   |   `-- on_receipt_message.ts
-|   |
 |   `-- scripts/
 |       |-- backfill_receipts.ts
 |       `-- validate_receipt_schema.ts
@@ -266,7 +311,8 @@ chief-of-staff/
 
 ## 15) Function Responsibilities (M1)
 Core entrypoint:
-- `onReceiptMessage(event)`: receives Telegram receipt message and starts M1 pipeline.
+- Hook **`handler.ts` default export**: on `message:preprocessed`, if Telegram + `/receipt` + media → call `runReceiptPipeline(event)` (name as you prefer). Avoid throwing; catch errors and push user-visible messages (section 24).
+- `runReceiptPipeline(event)`: maps OpenClaw event context to `receipt_id`, downloads media via Telegram file APIs as needed, then runs parsing → validate → sheets.
 
 Parsing and normalization:
 - `extractReceiptFromImage(input)`: image/PDF -> structured candidate fields.
@@ -320,20 +366,16 @@ Response:
 ```
 
 ### 16.2 Google Sheets Append Request Shape (`receipts_raw`)
-Column mapping for `receipts_raw!A:I`:
-- `A`: `receipt_id`
-- `B`: `message_id`
-- `C`: `merchant_name`
-- `D`: `receipt_date`
-- `E`: `total_amount`
-- `F`: `tax_amount`
-- `G`: `classification`
-- `H`: `currency`
-- `I`: `confidence`
+Column mapping for `receipts_raw!A:M`:
+- `A`–`I`: as before (`receipt_id` … `confidence`)
+- `J`: `needs_review`
+- `K`: `tax_label_raw`
+- `L`: `month_key`
+- `M`: `raw_json` (stringified object; optional truncation with full copy in logs)
 
 ```json
 {
-  "range": "receipts_raw!A:I",
+  "range": "receipts_raw!A:M",
   "majorDimension": "ROWS",
   "values": [
     [
@@ -345,7 +387,11 @@ Column mapping for `receipts_raw!A:I`:
       2547,
       "groceries",
       "IDR",
-      0.93
+      0.93,
+      false,
+      "PPN",
+      "2023-07",
+      "{\"detected_total_label\":\"Total Belanja\"}"
     ]
   ]
 }
@@ -409,6 +455,14 @@ M1 hardening baseline:
 - limited mount points
 - only required outbound domains allowed after parity validation
 
+**M1 sandbox egress allowlist (initial):** after parity baseline, restrict outbound to at least:
+- `api.openai.com` (OpenAI API)
+- `sheets.googleapis.com` (Google Sheets API)
+- `oauth2.googleapis.com` and `www.googleapis.com` if the client library requires token endpoints
+- Any host your OpenClaw/Telegram stack uses for **Telegram Bot API** if tools or the gateway call it over HTTPS (confirm from your runtime’s actual requests)
+
+Tune the list using network logs from a successful dry run; **default deny** without this list will break the pipeline.
+
 ## 19) Behavior Parity Acceptance Checklist (Sandbox vs Non-Sandbox)
 The sandbox setup is accepted only if all checks pass:
 - same command entrypoint for standard run flow
@@ -436,10 +490,12 @@ colima start
 docker ps
 ```
 
-3. Install OpenClaw and verify:
+3. Install OpenClaw in a **project-local** way and verify (pick one path and document it in `openclaw-platform/README.md`):
 ```bash
-curl -fsSL https://openclaw.ai/install.sh | bash
-openclaw --version
+# Example: from openclaw-platform/ after package.json includes openclaw
+npm install
+npx openclaw --version
+# Alternative per official docs: curl installer — then still pin OPENCLAW_HOME below
 ```
 
 4. Keep OpenClaw state project-local:
@@ -466,6 +522,8 @@ openclaw gateway
 openclaw pairing list telegram
 openclaw pairing approve telegram <PAIR_CODE>
 ```
+
+7b. **Lock down who can talk to the bot** using OpenClaw Telegram config (e.g. `channels.telegram.allowFrom` with **your numeric user id** or `@username`). See OpenClaw Telegram docs. Do not leave a personal finance bot open to the world.
 
 8. Enable sandbox with parity-first behavior:
 ```bash
@@ -522,3 +580,102 @@ OPENCLAW_HOME=/absolute/path/to/chief-of-staff/openclaw-platform/.openclaw-home
 Notes:
 - API billing for OpenAI is usage-based and separate from ChatGPT subscription.
 - Keep `.env` and service-account JSON out of git.
+
+## 22) User prerequisites: accounts, billing, and manual steps (detailed)
+
+Follow in order; you can skip steps you already have.
+
+### A) OpenAI (API for GPT-4.1 mini + vision)
+1. Create an account at [OpenAI Platform](https://platform.openai.com/).
+2. Add a **payment method** and ensure **API access** is enabled (usage-based billing).
+3. Create an **API key** (Dashboard → API keys). Store it only in `.env` / secret store, not in git.
+4. Before locking M1, run one **test vision request** (image + prompt) against **`gpt-4.1-mini`** (or the exact model id you configure) to confirm **image input** works for your integration path.
+
+### B) Google Cloud + Google Sheets API (spreadsheet writes)
+1. Sign in to [Google Cloud Console](https://console.cloud.google.com/) with a Google account.
+2. **Create a project** (name it e.g. `receipt-assistant`). Note the **project id**.
+3. **Enable** the **Google Sheets API** for that project (APIs & Services → Library → “Google Sheets API” → Enable).
+4. **Create a service account** (IAM & Admin → Service Accounts → Create). Give it a clear name (e.g. `receipt-sheets-writer`).
+5. **Create a JSON key** for that service account (Keys → Add key → JSON). Download and store outside git; set `GOOGLE_APPLICATION_CREDENTIALS` to its absolute path.
+6. Open the JSON and copy **`client_email`** (ends with `@...gserviceaccount.com`).
+7. In **Google Sheets**, create a spreadsheet (or pick an existing one). **Share** it with **`client_email`** with **Editor** access. Without this, API calls return permission errors.
+8. Copy the spreadsheet id from the URL (`/d/<SPREADSHEET_ID>/`) into `RECEIPT_SPREADSHEET_ID`.
+
+**Billing:** GCP may ask for a billing account depending on product policy; for Sheets API usage from a service account, costs are typically low for personal volume—still monitor quotas in Cloud Console.
+
+### C) Telegram bot
+1. In Telegram, open a chat with **@BotFather**.
+2. Run `/newbot`, follow prompts, and obtain the **HTTP API token**.
+3. Store the token in `TELEGRAM_BOT_TOKEN` (or whatever OpenClaw’s config expects—follow OpenClaw Telegram docs).
+4. Complete **OpenClaw pairing** for your Telegram channel (section 20, step 7).
+5. **Restrict who can use the bot** using `channels.telegram.allowFrom` (your numeric user id or `@username`) per OpenClaw Telegram documentation—treat this as mandatory for a personal finance bot.
+
+### D) Local machine (macOS, recommended path in this RFC)
+1. Install **Homebrew** if missing.
+2. Install **Node.js** (LTS), **Docker**, and **Colima** (section 20).
+3. Start Colima and verify `docker ps` works.
+
+### E) Optional: Telegram user id (for allowlists)
+- DM your bot, then use `openclaw logs --follow` and read `from.id`, **or** call `getUpdates` per Telegram Bot API docs, **or** use an id bot—prefer the official logs method for privacy (see OpenClaw FAQ / Telegram docs).
+
+## 23) OpenClaw integration (M1): hooks, discovery, and security
+
+### Hook shape (per OpenClaw)
+- One directory per hook: `HOOK.md` (frontmatter with `metadata.openclaw.events`) + `handler.ts` (default export async function).
+- **Recommended event:** `message:preprocessed` so media and text enrichment are ready.
+- **Events array** should list only what you need (e.g. `["message:preprocessed"]`) to limit overhead.
+
+### Where hooks are loaded from
+Discovery order (simplified): bundled → plugin → managed `~/.openclaw/hooks/` → workspace. For this repo, prefer:
+- **`hooks.internal.load.extraDirs`** in config pointing to `openclaw-platform/hooks/`, **or**
+- **Workspace hooks** under the agent workspace `/hooks/`, explicitly **enabled** in config (disabled by default).
+
+### Config tasks
+1. Point extra hook directory at `openclaw-platform/hooks/receipt-intake/` (parent of `HOOK.md`).
+2. **Enable** the hook entry if your OpenClaw version requires per-hook `enabled: true`.
+3. **Restart the gateway** after changes (`openclaw gateway` process).
+
+### Telegram hardening
+- Set **`channels.telegram.allowFrom`** to **your** Telegram user id (numeric recommended) or `@username` so random users cannot use the bot or exfiltrate data via prompts.
+- Keep pairing approval workflow documented for new devices.
+
+### Relationship to `SKILL.md`
+- **`assistants/receipt-assistant/SKILL.md`**: documents instructions for the **agent** (prompts, tools, behavior).
+- **`hooks/receipt-intake/handler.ts`**: **deterministic** pipeline for `/receipt` + media → Sheets. Both can coexist; M1 **requires** the hook path for the locked automation behavior.
+
+## 24) Failure modes and user-facing responses
+
+| Situation | User sees (Telegram) | Internal behavior |
+| --- | --- | --- |
+| Missing `/receipt` or missing media | Short usage hint: “Send `/receipt` with a photo or PDF.” | Return early from hook |
+| Duplicate `receipt_id` | “Already saved (receipt …).” | Skip append (section 6) |
+| Schema / validation failure | “Couldn’t parse reliably; needs review.” Include `needs_review` if partial payload exists | Log full `raw_json`; do not claim success |
+| OpenAI API error (rate limit, 5xx) | “Temporary error; retry in a minute.” | Retry with backoff where safe; log request id if present |
+| Sheets API error (403, 404, quota) | “Could not save to sheet; check bot config.” | Log HTTP status; do not mark as saved |
+| PDF too many pages | “Only first N pages used” (if implemented) or error | Enforce cap in code |
+| File too large for Telegram | Telegram error surfaced | Respect Bot API limits; suggest smaller image |
+
+Hooks should **not throw** uncaught exceptions; use `try/catch`, log, and **push** a user message via `event.messages` (see OpenClaw hooks docs) so other handlers still run.
+
+## 25) Observability and logging
+
+- **Gateway / OpenClaw logs:** follow OpenClaw docs for log locations (e.g. `/tmp/openclaw/` default daily log); use **`openclaw status`**, **`openclaw logs --follow`**, and **`openclaw health`** when debugging channels.
+- **Application logging:** log one line per receipt with `receipt_id`, outcome (`appended` / `duplicate` / `error`), and **non-sensitive** merchant/date summary—never log API keys or full Telegram tokens.
+- **`raw_json`:** full structured debug payload should appear in **logs** if the sheet cell is truncated.
+- **Sheets:** optional “errors” or “audit” tab is **out of scope for M1** unless needed for ops.
+
+## 26) Is M1 easily executable?
+
+**Mostly yes** for someone comfortable with **Node/TypeScript**, **environment variables**, **Google Cloud service accounts**, and **running a long-lived local gateway**. The pipeline itself is standard: vision LLM → JSON validate → Sheets append.
+
+**Where time usually goes:**
+- **OpenClaw hook wiring** (correct event, discovery path, gateway restart, `allowFrom`).
+- **Sandbox egress** if you enable default-deny network rules before validating hosts.
+- **Telegram edge cases** (albums, PDF rendering, large files).
+- **Verifying** the locked model accepts **images** on your exact API path.
+
+**Not “one click”:** expect **0.5–2 days** for an experienced developer to get end-to-end first success, plus time for the **60-receipt** evaluation set. Newcomers to GCP or OpenClaw should add buffer.
+
+---
+
+*RFC-001 end.*
