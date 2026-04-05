@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md",
+                "file": "JOURNAL-DRAFT.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "RFC-001-openclaw-telegram-receipt-assistant"
+              "title": "JOURNAL-DRAFT"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md",
+                "file": "JOURNAL-DRAFT.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for RFC-001-openclaw-telegram-receipt-assistant"
+              "title": "Backlinks for JOURNAL-DRAFT"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md",
+                "file": "JOURNAL-DRAFT.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from RFC-001-openclaw-telegram-receipt-assistant"
+              "title": "Outgoing links from JOURNAL-DRAFT"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md",
+                "file": "JOURNAL-DRAFT.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of RFC-001-openclaw-telegram-receipt-assistant"
+              "title": "Outline of JOURNAL-DRAFT"
             }
           }
         ],
@@ -185,8 +185,8 @@
   },
   "active": "a7d7502bea8b9ba6",
   "lastOpenFiles": [
-    "JOURNAL-DRAFT.md",
     "rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md",
+    "JOURNAL-DRAFT.md",
     "rfc-vault"
   ]
 }

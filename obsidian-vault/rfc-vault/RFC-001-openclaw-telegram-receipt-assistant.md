@@ -196,6 +196,8 @@ Minimum accuracy:
 - First model for M1 is fixed to one model: OpenAI GPT-4.1 mini.
 - Alternative cheaper providers were discussed for later milestones, but not selected for M1.
 - Classification taxonomy updated to: `food|mobility|groceries|nonfood|subscription`.
+- Sandbox direction fixed to local `Docker + Colima` with parity-first rollout.
+- Parity requirement fixed: normal commands and intended receipt behavior must remain unchanged between non-sandbox and sandbox mode.
 
 ## 13) References
 - OpenClaw Getting Started: https://docs.openclaw.ai/start/getting-started
@@ -375,3 +377,148 @@ When Python is still a good choice:
 
 M1 decision:
 - Use **TypeScript** for implementation.
+
+## 18) Local Sandbox Strategy (Parity-First)
+Goal:
+- keep development local
+- reduce risk from unwanted tool behavior
+- keep normal assistant behavior and commands unchanged
+
+Selected strategy for M1:
+- `Docker + Colima` on local machine
+- sandbox mode rollout: `parity-first`
+- network policy target: `default deny + allowlist` after parity baseline is confirmed
+
+What parity-first means:
+- same start/run commands as non-sandbox workflow
+- same model (`gpt-4.1-mini`) and same environment values
+- same pipeline outputs for intended receipt flows
+- sandbox only blocks unsafe or explicitly disallowed actions
+
+Open-source runtime/sandbox options considered:
+- `Docker + Colima` (selected)
+- `Podman machine`
+- `Lima + containerd/nerdctl`
+- `gVisor` (`runsc`) for stronger isolation (future hardening)
+- `Kata Containers` for VM-backed container isolation (future hardening)
+
+M1 hardening baseline:
+- no global OpenClaw install
+- project-local runtime only
+- least-privilege container settings
+- limited mount points
+- only required outbound domains allowed after parity validation
+
+## 19) Behavior Parity Acceptance Checklist (Sandbox vs Non-Sandbox)
+The sandbox setup is accepted only if all checks pass:
+- same command entrypoint for standard run flow
+- same receipt extraction fields and JSON contract output
+- same Google Sheets write behavior for valid receipts
+- same classification output for the golden test set
+- no regression in M1 accuracy targets
+
+Known expected difference:
+- malicious/unwanted actions can be blocked in sandbox mode; this is intentional and not treated as parity failure.
+
+## 20) End-to-End Run Guide (Local + Sandbox, Parity-First)
+This runbook follows the selected M1 approach: local execution with project-local OpenClaw and sandbox parity-first.
+
+1. Create runtime workspace in this repository:
+```bash
+mkdir -p openclaw-platform
+cd openclaw-platform
+```
+
+2. Install local runtime prerequisites (macOS):
+```bash
+brew install colima docker node
+colima start
+docker ps
+```
+
+3. Install OpenClaw and verify:
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash
+openclaw --version
+```
+
+4. Keep OpenClaw state project-local:
+```bash
+export OPENCLAW_HOME="$PWD/.openclaw-home"
+mkdir -p "$OPENCLAW_HOME"
+```
+
+5. Add environment variables (see section 21), then load them:
+```bash
+set -a
+source .env
+set +a
+```
+
+6. Run onboarding and bring up gateway:
+```bash
+openclaw onboard
+openclaw gateway
+```
+
+7. Configure Telegram channel and pairing flow:
+```bash
+openclaw pairing list telegram
+openclaw pairing approve telegram <PAIR_CODE>
+```
+
+8. Enable sandbox with parity-first behavior:
+```bash
+openclaw config set agents.defaults.sandbox.mode "all"
+openclaw config set agents.defaults.sandbox.scope "session"
+openclaw config set agents.defaults.sandbox.workspaceAccess "rw"
+```
+
+9. Run health/security checks:
+```bash
+openclaw doctor
+openclaw security audit
+```
+
+10. Execute end-to-end validation:
+- send a receipt photo to Telegram bot
+- verify assistant response fields (`merchant_name`, `receipt_date`, `total_amount`, `tax_amount`, `classification`)
+- verify append in `receipts_raw`
+- verify monthly rollup in `monthly_breakdown`
+
+11. Parity verification (non-sandbox vs sandbox):
+- run the same golden receipt set in both modes
+- compare extracted values and classification outputs
+- accept only if section 19 checklist passes
+
+## 21) Required Environment Variables (M1)
+Create `openclaw-platform/.env` with:
+
+```bash
+# Model provider
+OPENAI_API_KEY=your_openai_api_key
+
+# Telegram
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+
+# Google Sheets
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
+RECEIPT_SPREADSHEET_ID=your_google_sheet_id
+RECEIPT_SHEET_RAW=receipts_raw
+RECEIPT_SHEET_MONTHLY=monthly_breakdown
+
+# Runtime defaults
+RECEIPT_MODEL=openai/gpt-4.1-mini
+NODE_ENV=development
+TZ=Asia/Jakarta
+```
+
+Optional but recommended:
+```bash
+# Keep OpenClaw state local to this project
+OPENCLAW_HOME=/absolute/path/to/chief-of-staff/openclaw-platform/.openclaw-home
+```
+
+Notes:
+- API billing for OpenAI is usage-based and separate from ChatGPT subscription.
+- Keep `.env` and service-account JSON out of git.

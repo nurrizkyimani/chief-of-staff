@@ -1,4 +1,135 @@
 
+# M4/W1/D5 - Sun, 5 Apr 26
+## OpenClaw Receipt Assistant - Local Flow, Hook Flow, and Real Code Path
+
+### What We Clarified
+- If we run OpenClaw locally, yes: it can receive Telegram messages locally, call model parsing (OpenAI), produce structured JSON, and then write that JSON result into Google Sheets.
+- OpenClaw does not need Kafka/Redis for this flow by default.
+- The hook handler (example: `parseReceipt()`) is called by OpenClaw runtime events, not by manually typing function calls in CLI.
+- CLI is mostly for setup/config/run commands; runtime message processing is done by the gateway/channel process.
+
+### End-to-End Flow (Simple)
+1. Telegram sends update to your local OpenClaw process.
+2. OpenClaw normalizes message context (`Body`, `RawBody`, `CommandBody`, `SessionKey`, `MessageSid`, etc).
+3. OpenClaw emits internal event `message:received`.
+4. Your hook handler (registered from `HOOK.md` + `handler.ts`) runs.
+5. Handler calls OpenAI (`gpt-4.1-mini`) to parse receipt image/text into standard JSON.
+6. Handler validates/normalizes fields (merchant, total, tax/PB1/PPN, date, category).
+7. Handler appends one row to Google Sheet raw tab.
+8. Monthly summary tab in the same spreadsheet updates via formulas/pivot.
+
+### How OpenClaw Actually Calls Hooks
+- Hooks are loaded at startup from discovered hook folders.
+- OpenClaw registers handlers by event key such as:
+  - `message`
+  - `message:received`
+  - `message:preprocessed`
+  - `message:transcribed`
+  - `message:sent`
+- At runtime OpenClaw calls:
+  - `createInternalHookEvent(...)`
+  - `triggerInternalHook(...)`
+- Your hook executes when event key matches what you declared.
+
+### Event System Explained (Node.js Mental Model)
+- This is an in-process event dispatch system inside OpenClaw (Node.js), not Kafka.
+- Node.js gives async concurrency through the event loop.
+- In OpenClaw hook bus:
+  - one `triggerInternalHook(event)` call awaits handlers in registration order.
+  - errors in one handler are caught and logged, then next handler still runs.
+- Some hook triggers are wrapped as fire-and-forget, so main reply flow can continue without waiting full hook completion.
+
+### "Is It Pipeline + Workers Like Goroutine?"
+- Conceptually yes, you can think of a pipeline.
+- Implementation-wise it is Node async + promises, not Go channels/goroutines.
+- Parallelism/concurrency comes from async I/O and non-blocking operations, not native goroutines.
+
+### File-to-File Real Code Path (OpenClaw)
+```text
+extensions/telegram/src/monitor.ts
+  -> TelegramPollingSession.runUntilAbort()
+  -> bot.on("message", ...) in bot-handlers.runtime.ts
+  -> processInboundMessage(...)
+  -> build ctxPayload via finalizeInboundContext(...) in bot-message-context.session.ts
+  -> dispatchReplyWithBufferedBlockDispatcher(...) in bot-message-dispatch.ts
+  -> dispatchReplyFromConfig(...) in core reply pipeline
+  -> triggerInternalHook(createInternalHookEvent("message","received",...))
+  -> your registered hook handler executes
+```
+
+### Runtime vs CLI
+- Runtime (auto):
+  - receives Telegram update
+  - creates event payload
+  - dispatches hooks
+  - sends replies
+- CLI (manual):
+  - run/start gateway
+  - configure channels/hooks
+  - inspect status/logs
+- CLI does not manually invoke `parseReceipt()` for normal message handling.
+
+### Example Internal Event Payload Shape
+```json
+{
+  "type": "message",
+  "action": "received",
+  "sessionKey": "agent:main:telegram:direct:123456",
+  "timestamp": "2026-04-05T00:00:00.000Z",
+  "context": {
+    "from": "telegram:123456",
+    "content": "receipt image/text",
+    "channelId": "telegram",
+    "accountId": "default",
+    "conversationId": "telegram:123456",
+    "messageId": "987654",
+    "metadata": {}
+  },
+  "messages": []
+}
+```
+
+### For Receipt Assistant (M1) in This Architecture
+- Model: OpenAI `gpt-4.1-mini`.
+- Output JSON fields: restaurant/merchant, total, tax (PPN/PB1/service), date, classification.
+- Classification set for M1:
+  - `food`
+  - `mobility`
+  - `groceries`
+  - `nonfood`
+  - `subscription`
+- Google Sheets:
+  - raw tab (`receipts_raw`) receives one parsed receipt per row.
+  - monthly tab in same spreadsheet summarizes totals by month/category.
+
+### Real OpenClaw References We Checked
+- Telegram polling boot:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/extensions/telegram/src/monitor.ts#L235-L250
+- Telegram inbound message event:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/extensions/telegram/src/bot-handlers.runtime.ts#L1788-L1822
+- Telegram inbound context payload:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/extensions/telegram/src/bot-message-context.session.ts#L256-L318
+- Telegram dispatch into core:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/extensions/telegram/src/bot-message-dispatch.ts#L603-L609
+- Core emits internal `message:received`:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/auto-reply/reply/dispatch-from-config.ts#L443-L453
+- Internal hook types + event interface:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/hooks/internal-hooks.ts#L16-L17
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/hooks/internal-hooks.ts#L174-L187
+- Internal hook dispatch function:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/hooks/internal-hooks.ts#L289-L306
+- Hook discovery from `HOOK.md` + handler files:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/hooks/workspace.ts#L89-L122
+- Hook loading/registration at startup:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/gateway/server-startup.ts#L135-L179
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/hooks/loader.ts#L61-L139
+- Fire-and-forget helper used by message hooks:
+  - https://github.com/openclaw/openclaw/blob/b63557679e85e4aa7506ec597235821968a9ec95/src/hooks/fire-and-forget.ts#L3-L10
+
+### Final Practical Answer
+Yes, your local setup can do exactly this sequence:
+Telegram message/image -> local OpenClaw receives -> hook runs -> OpenAI parses to JSON -> JSON appended to Google Sheet.
+
 
 # M4/W1/D3 - Fri, 3 Apr 26
 ## OpenClaw Home Brain - Reddit 
