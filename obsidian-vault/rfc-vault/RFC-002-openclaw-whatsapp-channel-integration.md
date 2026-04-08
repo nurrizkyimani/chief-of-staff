@@ -77,6 +77,59 @@ Why:
 Fallback:
 - Personal number mode with self-chat can work, but is not the default for M2.
 
+### 6.1 How to get a dedicated number (step-by-step)
+
+Goal: get a stable number that can stay active for months, receive WhatsApp verification SMS once, and remain cheap to maintain.
+
+#### Option A (recommended): local carrier eSIM
+Best for reliability and long-term use.
+
+1. Pick a mobile carrier in your country that supports prepaid or low-cost monthly eSIM plans.
+2. Buy an eSIM plan that can receive SMS (data-only eSIM without SMS is not enough).
+3. Install eSIM on a spare phone (Android preferred for always-on setup) or your current phone temporarily.
+4. Activate the line and verify it can receive SMS.
+5. Install WhatsApp or WhatsApp Business for that number.
+6. Complete WhatsApp verification for the new number.
+7. Keep this phone powered and connected to Wi-Fi during initial OpenClaw pairing and early testing.
+8. Record renewal cadence (weekly/monthly) and set reminders so the number is never recycled.
+
+#### Option B: physical prepaid SIM
+Good fallback if eSIM is unavailable.
+
+1. Buy a prepaid SIM from a local carrier with SMS support.
+2. Insert SIM into a spare phone and activate it.
+3. Top up the minimum amount required to keep the number alive.
+4. Verify SMS reception.
+5. Register WhatsApp with this number.
+6. Keep periodic top-ups to prevent expiry/reassignment.
+
+#### Option C: second-line/postpaid add-on (family or business plan)
+Good for predictable billing and fewer expiry issues.
+
+1. Ask your carrier for an additional line under your existing account.
+2. Ensure the new line can receive verification SMS and supports WhatsApp registration.
+3. Register WhatsApp and dedicate that line to the assistant.
+
+#### Avoid these for M2
+- Most VoIP/free virtual SMS numbers (often blocked by WhatsApp).
+- Shared/public SMS inbox services.
+- Numbers without guaranteed long-term ownership.
+
+### 6.2 Sustainability checklist (keep number healthy)
+- Keep ownership in your name/account.
+- Use auto-renew or recurring top-up.
+- Do a monthly health check: can receive SMS, WhatsApp session still valid, no carrier suspension.
+- Keep a backup recovery path (PIN, carrier app access, recovery email).
+- Document costs and renewal date in ops notes.
+
+### 6.3 Cost ranges (typical, varies by country)
+- Local prepaid eSIM/SIM: usually low-cost monthly (often the cheapest sustainable path).
+- Postpaid second line: higher monthly cost, but easier continuity/support.
+- Business/dedicated plans: highest cost, best operational separation.
+
+Decision rule for this RFC:
+- Choose the lowest-cost option that guarantees long-term control and SMS reliability.
+
 ## 7) Trigger Semantics (WhatsApp)
 
 ### 7.1 DM Trigger
@@ -203,7 +256,7 @@ Rollout rule:
 
 In addition to RFC-001 prerequisites:
 
-1. **Dedicated WhatsApp number** (recommended).
+1. **Dedicated WhatsApp number** (recommended; see section 6.1 for acquisition options and section 6.2 for sustainability).
 2. Phone with WhatsApp/WhatsApp Business for initial verification.
 3. OpenClaw configured with WhatsApp channel.
 4. QR login completed (`openclaw channels login`).
