@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "32c0be9d3286973f",
+        "id": "c05e20ec0753f927",
         "type": "tabs",
         "children": [
           {
-            "id": "a7d7502bea8b9ba6",
+            "id": "d7464190f1e4bd43",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "JOURNAL-DRAFT.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "JOURNAL-DRAFT"
+              "title": "New tab"
             }
           }
         ]
@@ -94,7 +90,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "JOURNAL-DRAFT.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +99,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for JOURNAL-DRAFT"
+              "title": "Backlinks"
             }
           },
           {
@@ -113,12 +108,11 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "JOURNAL-DRAFT.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from JOURNAL-DRAFT"
+              "title": "Outgoing links"
             }
           },
           {
@@ -156,13 +150,12 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "JOURNAL-DRAFT.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of JOURNAL-DRAFT"
+              "title": "Outline"
             }
           }
         ],
@@ -183,7 +176,7 @@
       "bases:Create new base": false
     }
   },
-  "active": "a7d7502bea8b9ba6",
+  "active": "d7464190f1e4bd43",
   "lastOpenFiles": [
     "rfc-vault/RFC-002-openclaw-whatsapp-channel-integration.md",
     "rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md",

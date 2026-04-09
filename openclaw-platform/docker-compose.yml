@@ -1,0 +1,18 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openclaw-platform:local
+    env_file:
+      - .env
+    environment:
+      OPENCLAW_HOME: /app/.openclaw-home
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google-service-account.json
+    volumes:
+      - ./.openclaw-home:/app/.openclaw-home
+      - ./config:/app/config:ro
+      - ./hooks:/app/hooks:ro
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-./.secrets/service-account.json}:/run/secrets/google-service-account.json:ro
+    tty: true
+    stdin_open: true

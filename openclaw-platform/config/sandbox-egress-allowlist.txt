@@ -1,0 +1,5 @@
+api.openai.com
+sheets.googleapis.com
+oauth2.googleapis.com
+www.googleapis.com
+api.telegram.org

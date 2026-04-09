@@ -1,0 +1,12 @@
+{
+  "defaultProvider": "openai",
+  "models": {
+    "receipt_intake": "openai/gpt-4.1-mini"
+  },
+  "requiredEnv": [
+    "OPENAI_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "RECEIPT_SPREADSHEET_ID"
+  ]
+}

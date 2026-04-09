@@ -1,0 +1,29 @@
+{
+  "name": "openclaw-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "validate-schema": "tsx src/scripts/validate_receipt_schema.ts",
+    "backfill": "tsx src/scripts/backfill_receipts.ts",
+    "parity-compare": "tsx src/scripts/compare_parity_results.ts"
+  },
+  "dependencies": {
+    "@buape/carbon": "^0.14.0",
+    "@grammyjs/runner": "^2.0.3",
+    "@grammyjs/transformer-throttler": "^1.2.1",
+    "@larksuiteoapi/node-sdk": "^1.60.0",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0",
+    "grammy": "^1.42.0",
+    "openai": "^4.104.0",
+    "openclaw": "2026.4.8",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

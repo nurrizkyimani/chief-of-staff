@@ -10,8 +10,9 @@ This repository is used to:
 
 ## Current Status
 - Active focus: `RFC-001` (Telegram receipt parser -> structured JSON -> Google Sheets)
-- Milestone M1 is documented and being refined in the RFC vault
-- Runtime implementation folder (`openclaw-platform/`) is planned but not created yet
+- Milestone M1 is actively implemented in `openclaw-platform/`
+- OpenClaw local runtime wrapper + Make workflow are in place
+- Receipt hook pipeline, schema validation, and Google Sheets append flow are implemented
 
 ## Repository Structure
 ```text
@@ -20,6 +21,12 @@ chief-of-staff/
 |   |-- JOURNAL-DRAFT.md
 |   `-- rfc-vault/
 |       `-- RFC-001-openclaw-telegram-receipt-assistant.md
+|-- openclaw-platform/
+|   |-- README.md
+|   |-- Makefile
+|   |-- hooks/
+|   |-- src/
+|   `-- config/
 |-- .obsidian/
 `-- README.md
 ```

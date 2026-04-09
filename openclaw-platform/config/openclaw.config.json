@@ -1,0 +1,58 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai/gpt-4.1-mini"
+      },
+      "sandbox": {
+        "mode": "all",
+        "backend": "docker",
+        "scope": "session",
+        "workspaceAccess": "rw",
+        "docker": {
+          "image": "openclaw-sandbox:bookworm-slim",
+          "network": "none"
+        }
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "allowFrom": [
+        "telegram:380399260"
+      ],
+      "groupAllowFrom": [
+        "telegram:380399260"
+      ],
+      "groups": {
+        "*": {
+          "requireMention": true
+        }
+      }
+    }
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "load": {
+        "extraDirs": [
+          "/Users/nurrizky/dev/chief-of-staff/openclaw-platform/hooks"
+        ]
+      },
+      "entries": {
+        "receipt-intake": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token"
+    }
+  }
+}
