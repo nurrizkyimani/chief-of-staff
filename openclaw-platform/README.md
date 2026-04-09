@@ -1,8 +1,8 @@
 # openclaw-platform (M1 executable, OpenClaw-first)
 
 Local implementation for RFC-001:
-- Telegram receipt intake (`/receipt` + photo/PDF)
-- OpenAI extraction (`gpt-4.1-mini`)
+- Telegram receipt intake (`/receipt` + image-first flow)
+- Mistral extraction (`mistral-small-2506`)
 - `receipt.v1.1` validation
 - Google Sheets append to `receipts_raw` + `monthly_breakdown` formula bootstrap
 
@@ -37,13 +37,14 @@ cp .env.example .env
 ```
 
 Fill `.env` values:
-- `OPENAI_API_KEY`
+- `MISTRAL_API_KEY`
 - `TELEGRAM_BOT_TOKEN`
 - `GOOGLE_APPLICATION_CREDENTIALS`
 - `RECEIPT_SPREADSHEET_ID`
 - `RECEIPT_SHEET_RAW`
 - `RECEIPT_SHEET_MONTHLY`
 - `RECEIPT_MAX_PDF_PAGES` (default `3`)
+- `RECEIPT_ACCEPT_PDF` (`false` = image-first mode, keep PDF code path but disable intake)
 - `RECEIPT_STRICT_MEMORY_ONLY` (`true` = image-only strict in-memory mode)
 
 ## 3) Prepare Google Sheet
@@ -114,17 +115,22 @@ make logs
 
 ## 8) Test from Telegram
 
-Send `/receipt` plus a photo or PDF to your bot.
+Send `/receipt` plus a photo/image to your bot.
 
 Expected result:
-- Telegram reply from hook: `Saved receipt: ...` or `Already recorded (...)`
-- One row appended to `receipts_raw`
+- Telegram first sends parsed fields with `Confirm` / `Cancel` buttons
+- Row is appended to `receipts_raw` only after `Confirm`
 - `monthly_breakdown!A1` formula auto-created if empty
 
 PDF behavior:
 - PDF is rasterized via `pdftoppm` (poppler-utils)
 - only first `RECEIPT_MAX_PDF_PAGES` pages are processed
 - bot includes a note when a PDF is truncated
+- image-first mode keeps PDF support in code, but intake is disabled by default unless `RECEIPT_ACCEPT_PDF=true`
+
+Model connectivity check from Telegram:
+- send `/modelhealth`
+- bot replies with provider, configured model, served model, latency, and success/failure
 
 Album behavior:
 - multiple media attachments in one message are processed independently

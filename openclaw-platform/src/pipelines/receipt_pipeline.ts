@@ -26,12 +26,12 @@ export type ReceiptPipelineResult = {
   appendResult: AppendReceiptResult;
 };
 
-export async function runReceiptPipeline(input: ReceiptPipelineInput): Promise<ReceiptPipelineResult> {
+export async function buildReceiptPayload(input: ReceiptPipelineInput): Promise<ReceiptPayload> {
   const candidate = await extractReceiptFromImage(input.imageBase64, input.mimeType);
   const receiptDate = normalizeReceiptDate(candidate.receipt_date);
   const classification = classifyReceiptFromCandidate(candidate);
 
-  const payload = validateReceiptV11({
+  return validateReceiptV11({
     schema_version: "receipt.v1.1",
     receipt_id: `${input.chatId}:${input.messageId}`,
     source: {
@@ -58,7 +58,9 @@ export async function runReceiptPipeline(input: ReceiptPipelineInput): Promise<R
       ocr_excerpt: candidate.raw_text
     }
   });
+}
 
+export async function persistReceiptPayload(payload: ReceiptPayload): Promise<AppendReceiptResult> {
   const appendResult = await appendReceiptsRawRow(payload);
   await ensureMonthlyBreakdownFormula();
 
@@ -72,5 +74,11 @@ export async function runReceiptPipeline(input: ReceiptPipelineInput): Promise<R
     needs_review: payload.needs_review
   });
 
+  return appendResult;
+}
+
+export async function runReceiptPipeline(input: ReceiptPipelineInput): Promise<ReceiptPipelineResult> {
+  const payload = await buildReceiptPayload(input);
+  const appendResult = await persistReceiptPayload(payload);
   return { payload, appendResult };
 }

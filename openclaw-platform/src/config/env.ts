@@ -12,14 +12,16 @@ const BoolLikeSchema = z.preprocess((value) => {
 }, z.boolean());
 
 const EnvSchema = z.object({
-  OPENAI_API_KEY: z.string().min(1),
-  RECEIPT_MODEL: z.string().default("gpt-4.1-mini"),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  MISTRAL_API_KEY: z.string().min(1),
+  RECEIPT_MODEL: z.string().default("mistral-small-2506"),
   TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
   RECEIPT_SPREADSHEET_ID: z.string().min(1),
   RECEIPT_SHEET_RAW: z.string().default("receipts_raw"),
   RECEIPT_SHEET_MONTHLY: z.string().default("monthly_breakdown"),
   RECEIPT_MAX_PDF_PAGES: z.coerce.number().int().min(1).max(10).default(3),
+  RECEIPT_ACCEPT_PDF: BoolLikeSchema.default(false),
   RECEIPT_STRICT_MEMORY_ONLY: BoolLikeSchema.default(false),
   NODE_ENV: z.string().default("development"),
   OPENCLAW_HOME: z.string().optional(),

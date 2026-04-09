@@ -2,7 +2,7 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openai/gpt-4.1-mini"
+        "primary": "mistral/mistral-small-latest"
       },
       "sandbox": {
         "mode": "all",
@@ -20,6 +20,15 @@
     "telegram": {
       "enabled": true,
       "dmPolicy": "allowlist",
+      "capabilities": {
+        "inlineButtons": "allowlist"
+      },
+      "customCommands": [
+        {
+          "command": "modelhealth",
+          "description": "Check Mistral model connectivity"
+        }
+      ],
       "allowFrom": [
         "telegram:380399260"
       ],
@@ -53,6 +62,13 @@
     "bind": "loopback",
     "auth": {
       "mode": "token"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "openai": {
+        "enabled": false
+      }
     }
   }
 }

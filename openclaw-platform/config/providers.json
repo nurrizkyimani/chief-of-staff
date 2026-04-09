@@ -1,10 +1,10 @@
 {
-  "defaultProvider": "openai",
+  "defaultProvider": "mistral",
   "models": {
-    "receipt_intake": "openai/gpt-4.1-mini"
+    "receipt_intake": "mistral/mistral-small-2506"
   },
   "requiredEnv": [
-    "OPENAI_API_KEY",
+    "MISTRAL_API_KEY",
     "TELEGRAM_BOT_TOKEN",
     "GOOGLE_APPLICATION_CREDENTIALS",
     "RECEIPT_SPREADSHEET_ID"
