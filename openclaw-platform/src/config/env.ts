@@ -14,7 +14,7 @@ const BoolLikeSchema = z.preprocess((value) => {
 const EnvSchema = z.object({
   OPENAI_API_KEY: z.string().min(1).optional(),
   MISTRAL_API_KEY: z.string().min(1),
-  RECEIPT_MODEL: z.string().default("mistral-small-2506"),
+  RECEIPT_MODEL: z.string().default("mistral-small-latest"),
   TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
   RECEIPT_SPREADSHEET_ID: z.string().min(1),

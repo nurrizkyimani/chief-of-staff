@@ -1,7 +1,7 @@
 {
   "defaultProvider": "mistral",
   "models": {
-    "receipt_intake": "mistral/mistral-small-2506"
+    "receipt_intake": "mistral/mistral-small-latest"
   },
   "requiredEnv": [
     "MISTRAL_API_KEY",

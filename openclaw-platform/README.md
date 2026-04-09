@@ -2,7 +2,7 @@
 
 Local implementation for RFC-001:
 - Telegram receipt intake (`/receipt` + image-first flow)
-- Mistral extraction (`mistral-small-2506`)
+- Mistral extraction (`mistral-small-latest`)
 - `receipt.v1.1` validation
 - Google Sheets append to `receipts_raw` + `monthly_breakdown` formula bootstrap
 

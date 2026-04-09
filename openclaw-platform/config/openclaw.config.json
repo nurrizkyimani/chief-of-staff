@@ -13,7 +13,8 @@
           "image": "openclaw-sandbox:bookworm-slim",
           "network": "none"
         }
-      }
+      },
+      "thinkingDefault": "off"
     }
   },
   "channels": {
@@ -23,12 +24,6 @@
       "capabilities": {
         "inlineButtons": "allowlist"
       },
-      "customCommands": [
-        {
-          "command": "modelhealth",
-          "description": "Check Mistral model connectivity"
-        }
-      ],
       "allowFrom": [
         "telegram:380399260"
       ],
@@ -39,6 +34,9 @@
         "*": {
           "requireMention": true
         }
+      },
+      "streaming": {
+        "mode": "off"
       }
     }
   },

@@ -54,7 +54,86 @@ const TELEGRAM_API_BASE = "https://api.telegram.org";
 const MISTRAL_API_BASE = "https://api.mistral.ai";
 const CALLBACK_CONFIRM_PREFIX = "receipt_confirm:";
 const CALLBACK_REJECT_PREFIX = "receipt_reject:";
+const LOG_PREFIX = "[receipt-intake]";
+const LOG_PREVIEW_MAX = 360;
 const pendingConfirmations = new Map<string, PendingConfirmation>();
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function preview(value: unknown, max = LOG_PREVIEW_MAX): string {
+  if (value === undefined) return "(undefined)";
+  if (value === null) return "(null)";
+
+  let text: string;
+  if (typeof value === "string") {
+    text = value;
+  } else if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    text = String(value);
+  } else {
+    text = safeJson(value);
+  }
+
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return "(empty)";
+  return normalized.length > max ? `${normalized.slice(0, max)}...` : normalized;
+}
+
+function logStep(step: string, data?: Record<string, unknown>): void {
+  if (!data) {
+    console.info(`${LOG_PREFIX} ${step}`);
+    return;
+  }
+  console.info(`${LOG_PREFIX} ${step} ${safeJson(data)}`);
+}
+
+function describeMessageShape(messages: unknown[]): string[] {
+  return messages.slice(0, 12).map((item) => {
+    if (item === null) return "null";
+    if (Array.isArray(item)) return "array";
+    if (typeof item === "object") {
+      const keys = Object.keys(item as Record<string, unknown>).slice(0, 4);
+      return keys.length > 0 ? `object{${keys.join(",")}}` : "object{}";
+    }
+    return typeof item;
+  });
+}
+
+function toText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => toText(item))
+      .filter((item) => item.trim().length > 0)
+      .join("");
+  }
+
+  if (typeof value === "object") {
+    const candidate = value as {
+      text?: unknown;
+      content?: unknown;
+      value?: unknown;
+      message?: { content?: unknown };
+    };
+
+    if (typeof candidate.text === "string") return candidate.text;
+    if (candidate.content !== undefined) return toText(candidate.content);
+    if (candidate.value !== undefined) return toText(candidate.value);
+    if (candidate.message?.content !== undefined) return toText(candidate.message.content);
+
+    return safeJson(value);
+  }
+
+  return String(value);
+}
 
 function pickText(event: any): string {
   return (
@@ -67,7 +146,26 @@ function pickText(event: any): string {
 
 function pushMessage(event: any, text: string): void {
   if (!Array.isArray(event?.messages)) return;
-  event.messages.push(text);
+
+  const normalizedText = toText(text).trim();
+  const beforeCount = event.messages.length;
+  const beforeShape = describeMessageShape(event.messages);
+
+  const retained = event.messages
+    .filter((item) => typeof item === "string")
+    .map((item) => (item as string).trim())
+    .filter((item) => item.length > 0);
+
+  const next = normalizedText.length > 0 ? [...retained, normalizedText] : retained;
+  event.messages.splice(0, event.messages.length, ...next);
+
+  logStep("pushMessage", {
+    beforeCount,
+    beforeShape,
+    retainedStrings: retained.length,
+    pushedPreview: preview(normalizedText),
+    afterCount: event.messages.length
+  });
 }
 
 function pickChatId(event: any): string {
@@ -75,33 +173,131 @@ function pickChatId(event: any): string {
   return String(
     metadata.chatId ??
       metadata.conversationId ??
+      event?.context?.conversationId ??
+      event?.context?.senderId ??
+      event?.context?.groupId ??
       metadata.channelId ??
       event?.context?.channelId ??
       event?.context?.from?.id ??
+      event?.context?.from ??
       event?.sessionKey ??
       "unknown-chat"
   );
 }
 
+function extractNumericTelegramId(value: unknown): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+
+  const candidates = [
+    raw,
+    raw.replace(/^(telegram|tg):/i, ""),
+    raw.replace(/^(telegram|tg):group:/i, "")
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = candidate.trim();
+    if (!normalized) continue;
+
+    const direct = normalized.match(/^-?\d+$/);
+    if (direct) return direct[0];
+
+    const withTopic = normalized.match(/^(-?\d+):topic:\d+$/i);
+    if (withTopic?.[1]) return withTopic[1];
+
+    const withSender = normalized.match(/^(-?\d+):sender:-?\d+$/i);
+    if (withSender?.[1]) return withSender[1];
+
+    const withTopicAndSender = normalized.match(/^(-?\d+):topic:\d+:sender:-?\d+$/i);
+    if (withTopicAndSender?.[1]) return withTopicAndSender[1];
+  }
+
+  return null;
+}
+
+function pickTelegramAllowedFromId(event: any): string | null {
+  const cfg = event?.context?.cfg;
+  const candidates = [
+    cfg?.channels?.telegram?.allowFrom,
+    cfg?.channels?.telegram?.groupAllowFrom,
+    cfg?.telegram?.allowFrom,
+    cfg?.telegram?.groupAllowFrom
+  ];
+
+  for (const candidate of candidates) {
+    const values = Array.isArray(candidate) ? candidate : [candidate];
+    for (const value of values) {
+      const id = extractNumericTelegramId(value);
+      if (id) return id;
+    }
+  }
+
+  return null;
+}
+
 function pickTelegramSendChatId(event: any): string | null {
   const metadata = event?.context?.metadata ?? {};
+  const context = event?.context ?? {};
   const from = event?.context?.from ?? {};
+  const metadataFrom = metadata.from ?? {};
+  const metadataChat = metadata.chat ?? {};
+  const metadataMessage = metadata.message ?? {};
+  const metadataUpdate = metadata.update ?? {};
+  const contextRaw = context.raw ?? {};
+  const contextMessage = context.message ?? {};
+  const contextChat = context.chat ?? {};
+  const contextSender = context.sender ?? {};
   const candidates = [
     metadata.chatId,
     metadata.conversationId,
     metadata.groupId,
     metadata.targetChatId,
+    metadata.userId,
+    metadata.senderId,
+    metadata.fromId,
+    metadata.telegramChatId,
+    metadata.telegramUserId,
+    metadata.chat_id,
+    metadata.user_id,
+    metadata.sender_id,
+    metadataChat.id,
+    metadataMessage.chat?.id,
+    metadataUpdate.message?.chat?.id,
+    metadataUpdate.callback_query?.message?.chat?.id,
+    metadataFrom.id,
+    metadata.from,
+    metadata.to,
+    context.chatId,
+    context.conversationId,
+    context.groupId,
+    context.targetChatId,
+    context.userId,
+    context.senderId,
+    contextSender.id,
+    contextChat.id,
+    contextMessage.chat?.id,
+    contextRaw.message?.chat?.id,
+    contextRaw.callback_query?.message?.chat?.id,
+    context.from,
+    context.to,
+    from.id,
     from.chatId,
     from.conversationId,
-    from.groupId
+    from.groupId,
+    from.userId,
+    from.senderId
   ];
 
   for (const candidate of candidates) {
-    const normalized = String(candidate ?? "").trim();
-    if (/^-?\d+$/.test(normalized)) {
-      return normalized;
-    }
+    const normalized = extractNumericTelegramId(candidate);
+    if (normalized) return normalized;
   }
+
+  const fallback = extractNumericTelegramId(pickChatId(event));
+  if (fallback) return fallback;
+
+  const allowFromFallback = pickTelegramAllowedFromId(event);
+  if (allowFromFallback) return allowFromFallback;
 
   return null;
 }
@@ -356,29 +552,44 @@ function extractMistralContent(content: unknown): string {
 async function checkMistralHealth(): Promise<MistralHealthResult> {
   const startedAt = Date.now();
   const model = env.RECEIPT_MODEL;
+  const endpoint = `${MISTRAL_API_BASE}/v1/chat/completions`;
+
+  logStep("modelhealth.request", {
+    endpoint,
+    model
+  });
 
   try {
-    const response = await fetch(`${MISTRAL_API_BASE}/v1/chat/completions`, {
+    const requestBody = {
+      model,
+      temperature: 0,
+      max_tokens: 16,
+      messages: [
+        {
+          role: "user",
+          content: "Reply with exactly: OK"
+        }
+      ]
+    };
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        max_tokens: 16,
-        messages: [
-          {
-            role: "user",
-            content: "Reply with exactly: OK"
-          }
-        ]
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const latencyMs = Date.now() - startedAt;
     const bodyText = await response.text();
+
+    logStep("modelhealth.response", {
+      status: response.status,
+      ok: response.ok,
+      latencyMs,
+      bodyPreview: preview(bodyText)
+    });
 
     if (!response.ok) {
       return {
@@ -399,6 +610,9 @@ async function checkMistralHealth(): Promise<MistralHealthResult> {
     try {
       payload = JSON.parse(bodyText) as typeof payload;
     } catch {
+      logStep("modelhealth.parse.invalid_json", {
+        bodyPreview: preview(bodyText)
+      });
       return {
         ok: false,
         model,
@@ -407,8 +621,17 @@ async function checkMistralHealth(): Promise<MistralHealthResult> {
       };
     }
 
-    const sample = extractMistralContent(payload.choices?.[0]?.message?.content).slice(0, 120) || "(empty)";
+    const rawContent = payload.choices?.[0]?.message?.content;
+    const sample = extractMistralContent(rawContent).slice(0, 120) || "(empty)";
     const servedModel = String(payload.model ?? model);
+
+    logStep("modelhealth.parse.ok", {
+      configuredModel: model,
+      servedModel,
+      rawContentType: Array.isArray(rawContent) ? "array" : typeof rawContent,
+      samplePreview: preview(sample),
+      latencyMs
+    });
 
     return {
       ok: true,
@@ -418,6 +641,9 @@ async function checkMistralHealth(): Promise<MistralHealthResult> {
       sample
     };
   } catch (error) {
+    logStep("modelhealth.request.error", {
+      error: (error as Error)?.message ?? "Unknown network error"
+    });
     return {
       ok: false,
       model,
@@ -527,6 +753,12 @@ async function sendTelegramInlineConfirmation(chatId: string, text: string, toke
   if (!env.TELEGRAM_BOT_TOKEN) return false;
 
   try {
+    logStep("telegram.inline.request", {
+      chatId,
+      token,
+      textPreview: preview(text)
+    });
+
     const response = await fetch(`${TELEGRAM_API_BASE}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: {
@@ -552,10 +784,91 @@ async function sendTelegramInlineConfirmation(chatId: string, text: string, toke
       })
     });
 
+    const responseBody = await response.text();
+    logStep("telegram.inline.response", {
+      chatId,
+      status: response.status,
+      ok: response.ok,
+      bodyPreview: preview(responseBody)
+    });
+
     return response.ok;
-  } catch {
+  } catch (error) {
+    logStep("telegram.inline.error", {
+      chatId,
+      error: (error as Error)?.message ?? "Unknown sendMessage error"
+    });
     return false;
   }
+}
+
+async function sendTelegramTextMessage(chatId: string, text: string): Promise<boolean> {
+  if (!env.TELEGRAM_BOT_TOKEN) return false;
+
+  try {
+    logStep("telegram.text.request", {
+      chatId,
+      textPreview: preview(text)
+    });
+
+    const response = await fetch(`${TELEGRAM_API_BASE}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text
+      })
+    });
+
+    const responseBody = await response.text();
+    logStep("telegram.text.response", {
+      chatId,
+      status: response.status,
+      ok: response.ok,
+      bodyPreview: preview(responseBody)
+    });
+
+    return response.ok;
+  } catch (error) {
+    logStep("telegram.text.error", {
+      chatId,
+      error: (error as Error)?.message ?? "Unknown sendMessage error"
+    });
+    return false;
+  }
+}
+
+function suppressDownstreamProcessing(event: any, reason: string): void {
+  const context = event?.context;
+  const noReply = "NO_REPLY";
+
+  if (context && typeof context === "object") {
+    const mutable = context as Record<string, unknown>;
+    const keys = [
+      "bodyForAgent",
+      "bodyForCommands",
+      "content",
+      "text",
+      "body",
+      "rawBody",
+      "commandBody",
+      "transcript"
+    ];
+    for (const key of keys) {
+      mutable[key] = noReply;
+    }
+  }
+
+  if (Array.isArray(event?.messages)) {
+    event.messages.splice(0, event.messages.length);
+  }
+
+  logStep("event.suppress_downstream", {
+    reason,
+    token: noReply
+  });
 }
 
 async function handleConfirmation(event: any, action: ConfirmationAction): Promise<boolean> {
@@ -632,22 +945,86 @@ const handler = async (event: any) => {
   if (event?.type !== "message" || event?.action !== "preprocessed") return;
   if (!isTelegramEvent(event)) return;
 
+  logStep("event.start", {
+    type: event?.type,
+    action: event?.action,
+    channelId: event?.context?.channelId,
+    sessionKey: event?.sessionKey,
+    messageShape: Array.isArray(event?.messages) ? describeMessageShape(event.messages) : ["not-array"],
+    textPreview: preview(pickText(event))
+  });
+
   const text = pickText(event).trim();
   const confirmationAction = parseConfirmationAction(text);
   if (confirmationAction) {
+    logStep("event.confirmation", {
+      decision: confirmationAction.decision,
+      token: confirmationAction.token
+    });
     await handleConfirmation(event, confirmationAction);
     return;
   }
 
   if (isModelHealthCommand(text)) {
+    logStep("event.modelhealth.command", {
+      command: text
+    });
     const health = await checkMistralHealth();
-    pushMessage(event, formatMistralHealthMessage(health));
+    const healthMessage = formatMistralHealthMessage(health);
+    logStep("event.modelhealth.output", {
+      ok: health.ok,
+      outputPreview: preview(healthMessage)
+    });
+    const telegramChatId = pickTelegramSendChatId(event);
+    logStep("event.modelhealth.telegram_target", {
+      resolvedChatId: telegramChatId ?? "(null)",
+      fallbackChatId: pickChatId(event),
+      sampleIds: {
+        metadataChatId: event?.context?.metadata?.chatId ?? null,
+        metadataConversationId: event?.context?.metadata?.conversationId ?? null,
+        metadataUserId: event?.context?.metadata?.userId ?? null,
+        metadataFromId: event?.context?.metadata?.fromId ?? null,
+        fromId: event?.context?.from?.id ?? null,
+        fromChatId: event?.context?.from?.chatId ?? null,
+        contextConversationId: event?.context?.conversationId ?? null,
+        contextSenderId: event?.context?.senderId ?? null,
+        contextGroupId: event?.context?.groupId ?? null,
+        contextFrom: event?.context?.from ?? null,
+        contextChatId: event?.context?.chatId ?? null,
+        rawMessageChatId: event?.context?.raw?.message?.chat?.id ?? null,
+        cfgAllowFrom: event?.context?.cfg?.channels?.telegram?.allowFrom ?? null
+      },
+      metadataKeys: Object.keys(event?.context?.metadata ?? {}).slice(0, 20),
+      contextKeys: Object.keys(event?.context ?? {}).slice(0, 20),
+      fromKeys: Object.keys(event?.context?.from ?? {}).slice(0, 20)
+    });
+    const sentDirect =
+      telegramChatId !== null
+        ? await sendTelegramTextMessage(telegramChatId, healthMessage)
+        : false;
+
+    if (!sentDirect) {
+      pushMessage(event, healthMessage);
+      logStep("event.modelhealth.fallback_pushMessage");
+      return;
+    }
+
+    suppressDownstreamProcessing(event, "modelhealth_direct_send");
     return;
   }
 
   if (!isReceiptCommand(text)) return;
 
   const mediaCandidates = collectMediaCandidates(event, text);
+  logStep("event.receipt.media_candidates", {
+    count: mediaCandidates.length,
+    candidates: mediaCandidates.map((candidate) => ({
+      url: preview(candidate.url, 120),
+      mimeType: candidate.mimeType ?? "(none)",
+      sourceId: candidate.sourceId ?? "(none)"
+    }))
+  });
+
   if (mediaCandidates.length === 0) {
     pushMessage(event, "Send /receipt together with a photo/image.");
     return;
@@ -676,6 +1053,13 @@ const handler = async (event: any) => {
     const media = imageFirstCandidates[mediaIndex];
 
     try {
+      logStep("event.receipt.fetch.start", {
+        mediaIndex,
+        total: imageFirstCandidates.length,
+        url: preview(media.url, 160),
+        hintedMime: media.mimeType ?? "(none)"
+      });
+
       const response = await fetch(media.url);
       if (!response.ok) {
         throw new ReceiptError("MEDIA_FETCH", "Could not download media.", {
@@ -686,6 +1070,13 @@ const handler = async (event: any) => {
       const arrayBuffer = await response.arrayBuffer();
       const binary = Buffer.from(arrayBuffer);
       const mimeType = normalizeMimeType(media.mimeType ?? response.headers.get("content-type") ?? undefined, media.url);
+
+      logStep("event.receipt.fetch.ok", {
+        mediaIndex,
+        sizeBytes: binary.byteLength,
+        mimeType,
+        isPdf: mimeType === "application/pdf"
+      });
 
       const isPdf = mimeType === "application/pdf";
       const isImage = mimeType.startsWith("image/");
@@ -727,6 +1118,12 @@ const handler = async (event: any) => {
             responses
           );
 
+          logStep("event.receipt.pdf.page_parsed", {
+            mediaIndex,
+            pageNumber: page.pageNumber,
+            totalPages: pages.length
+          });
+
           if (pageIndex === 0 && page.truncated) {
             const countLabel = page.totalPages ? `${MAX_PDF_PAGES}/${page.totalPages}` : `first ${MAX_PDF_PAGES}`;
             responses.push(`Note: processed ${countLabel} PDF pages only.`);
@@ -746,7 +1143,17 @@ const handler = async (event: any) => {
       };
 
       await parseAndQueueReceipt(input, telegramChatId, mediaIndex, imageFirstCandidates.length, 1, 1, responses);
+      logStep("event.receipt.image_parsed", {
+        mediaIndex,
+        total: imageFirstCandidates.length,
+        messageId
+      });
     } catch (error) {
+      logStep("event.receipt.error", {
+        mediaIndex,
+        total: imageFirstCandidates.length,
+        error: error instanceof ReceiptError ? `${error.code}:${error.message}` : (error as Error)?.message ?? "unknown_error"
+      });
       responses.push(formatFailureMessage(error, mediaIndex, imageFirstCandidates.length));
       logReceiptOutcome({
         receipt_id: `${chatId}:${deriveMessageId(baseMessageId, media, mediaIndex, imageFirstCandidates.length, 1, 1)}`,
@@ -764,6 +1171,10 @@ const handler = async (event: any) => {
   }
 
   if (responses.length > 0) {
+    logStep("event.receipt.output", {
+      count: responses.length,
+      outputPreview: preview(responses.join("\n\n"))
+    });
     pushMessage(event, responses.join("\n\n"));
   }
 };
