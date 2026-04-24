@@ -63,7 +63,15 @@
     }
   },
   "plugins": {
+    "load": {
+      "paths": [
+        "/Users/nurrizky/dev/chief-of-staff/openclaw-platform/plugins/receipt-gate"
+      ]
+    },
     "entries": {
+      "receipt-gate": {
+        "enabled": true
+      },
       "openai": {
         "enabled": false
       }

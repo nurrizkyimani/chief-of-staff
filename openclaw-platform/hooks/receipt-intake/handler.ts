@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   buildReceiptPayload,
-  persistReceiptPayload,
   type ReceiptPipelineInput
 } from "../../dist/pipelines/receipt_pipeline.js";
 import type { ReceiptPayload } from "../../dist/assistants/receipt-assistant/schemas/receipt.v1.1.schema.js";
@@ -14,6 +16,12 @@ type MediaCandidate = {
   url: string;
   mimeType?: string;
   sourceId?: string;
+};
+
+type MediaReadResult = {
+  binary: Buffer;
+  mimeType: string;
+  resolvedFrom: string;
 };
 
 type PendingConfirmation = {
@@ -56,6 +64,13 @@ const CALLBACK_CONFIRM_PREFIX = "receipt_confirm:";
 const CALLBACK_REJECT_PREFIX = "receipt_reject:";
 const LOG_PREFIX = "[receipt-intake]";
 const LOG_PREVIEW_MAX = 360;
+const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(HOOK_DIR, "../../..");
+const OPENCLAW_PLATFORM_ROOT = resolve(HOOK_DIR, "../..");
+const OPENCLAW_HOME_ROOT = env.OPENCLAW_HOME
+  ? resolve(env.OPENCLAW_HOME)
+  : resolve(OPENCLAW_PLATFORM_ROOT, ".openclaw-home");
+const RECEIPT_JOURNAL_PATH = resolve(PROJECT_ROOT, "obsidian-vault/md-db/receipt-journal.md");
 const pendingConfirmations = new Map<string, PendingConfirmation>();
 
 function safeJson(value: unknown): string {
@@ -306,6 +321,7 @@ function pickMessageId(event: any): string {
   const metadata = event?.context?.metadata ?? {};
   return String(
     metadata.messageId ??
+      event?.context?.messageId ??
       event?.context?.from?.messageId ??
       event?.timestamp ??
       Date.now()
@@ -342,6 +358,65 @@ function normalizeMimeType(candidateMime: string | undefined, url: string): stri
   if (lowerUrl.endsWith(".png")) return "image/png";
   if (lowerUrl.endsWith(".webp")) return "image/webp";
   return "image/jpeg";
+}
+
+function candidateLocalPaths(rawPath: string): string[] {
+  const clean = rawPath.trim();
+  if (!clean) return [];
+
+  const normalized = clean.startsWith("file://")
+    ? fileURLToPath(clean)
+    : clean;
+
+  const paths = new Set<string>();
+  if (isAbsolute(normalized)) {
+    paths.add(normalized);
+  } else {
+    paths.add(resolve(process.cwd(), normalized));
+    paths.add(resolve(OPENCLAW_PLATFORM_ROOT, normalized));
+    paths.add(resolve(OPENCLAW_HOME_ROOT, normalized));
+    paths.add(resolve(OPENCLAW_HOME_ROOT, ".openclaw", normalized));
+    paths.add(resolve(OPENCLAW_HOME_ROOT, ".openclaw", "workspace", normalized));
+  }
+
+  return [...paths];
+}
+
+async function readMediaCandidate(media: MediaCandidate): Promise<MediaReadResult> {
+  if (/^https?:\/\//i.test(media.url)) {
+    const response = await fetch(media.url);
+    if (!response.ok) {
+      throw new ReceiptError("MEDIA_FETCH", "Could not download media.", {
+        status: response.status
+      });
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return {
+      binary: Buffer.from(arrayBuffer),
+      mimeType: normalizeMimeType(media.mimeType ?? response.headers.get("content-type") ?? undefined, media.url),
+      resolvedFrom: media.url
+    };
+  }
+
+  const attempts = candidateLocalPaths(media.url);
+  let lastError: unknown;
+  for (const candidatePath of attempts) {
+    try {
+      return {
+        binary: await readFile(candidatePath),
+        mimeType: normalizeMimeType(media.mimeType, candidatePath),
+        resolvedFrom: candidatePath
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new ReceiptError("MEDIA_FETCH", "Could not read local media file.", {
+    cause: lastError,
+    status: getErrorStatus(lastError)
+  });
 }
 
 function sanitizeToken(value: string): string {
@@ -393,7 +468,10 @@ function collectMediaCandidates(event: any, text: string): MediaCandidate[] {
       candidate.mediaUrl ??
       candidate.attachmentUrl ??
       candidate.fileUrl ??
-      candidate.downloadUrl;
+      candidate.downloadUrl ??
+      candidate.filePath ??
+      candidate.path ??
+      candidate.mediaPath;
 
     if (typeof urlValue !== "string" || !urlValue) return;
 
@@ -417,6 +495,15 @@ function collectMediaCandidates(event: any, text: string): MediaCandidate[] {
   addCandidate(context.media);
   addCandidate(context.attachment);
   addCandidate(context.attachments);
+  addCandidate(
+    context.mediaPath
+      ? {
+          mediaPath: context.mediaPath,
+          mimeType: context.mediaType,
+          id: context.messageId
+        }
+      : undefined
+  );
 
   const unique = new Map<string, MediaCandidate>();
   for (const item of collected) {
@@ -447,6 +534,47 @@ function prefixLabel(mediaIndex: number, totalMedia: number, pageNumber: number,
   return `[${parts.join(" · ")}] `;
 }
 
+function truncateText(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max)}...`;
+}
+
+function tableCell(value: unknown, max = 240): string {
+  const text = value === undefined || value === null ? "" : String(value);
+  return truncateText(text, max)
+    .replace(/\r?\n/g, " ")
+    .replace(/\|/g, "\\|")
+    .trim();
+}
+
+function receiptRowValues(payload: ReceiptPayload, rawJsonMax: number): Array<[string, string, string]> {
+  return [
+    ["A", "receipt_id", payload.receipt_id],
+    ["B", "message_id", payload.source.message_id],
+    ["C", "merchant_name", payload.merchant_name],
+    ["D", "receipt_date", payload.receipt_date],
+    ["E", "total_amount", payload.total_amount.toString()],
+    ["F", "tax_amount", payload.tax_amount.toString()],
+    ["G", "classification", payload.classification],
+    ["H", "currency", payload.currency],
+    ["I", "confidence", payload.confidence.toString()],
+    ["J", "needs_review", payload.needs_review ? "TRUE" : "FALSE"],
+    ["K", "tax_label_raw", payload.tax_label_raw],
+    ["L", "month_key", payload.month_key],
+    ["M", "raw_json", truncateText(JSON.stringify(payload.raw_json), rawJsonMax)]
+  ];
+}
+
+function formatReceiptTable(payload: ReceiptPayload, rawJsonMax: number): string {
+  const rows = receiptRowValues(payload, rawJsonMax)
+    .map(([col, header, value]) => `| ${col} | \`${header}\` | ${tableCell(value, col === "M" ? rawJsonMax : 240)} |`)
+    .join("\n");
+
+  return `| Col | Header | Value |
+| --- | --- | --- |
+${rows}`;
+}
+
 function formatConfirmationPreview(
   payload: ReceiptPayload,
   mediaIndex: number,
@@ -455,63 +583,83 @@ function formatConfirmationPreview(
   totalPages: number
 ): string {
   const prefix = prefixLabel(mediaIndex, totalMedia, pageNumber, totalPages);
-  return `${prefix}Parsed receipt (not saved yet):
-Merchant: ${payload.merchant_name}
-Date: ${payload.receipt_date}
-Total: ${payload.total_amount}
-Tax: ${payload.tax_amount}
-Class: ${payload.classification}
-Review: ${payload.needs_review ? "yes" : "no"}
+  return `${prefix}Parsed receipt (not saved yet)
 
-Confirm save to Google Sheets?`;
+${formatReceiptTable(payload, 320)}
+
+Save this row to receipt-journal.md?`;
 }
 
-function formatSavedMessage(
-  payload: ReceiptPayload,
-  appendResult: "appended" | "duplicate",
-  mediaIndex: number,
-  totalMedia: number,
-  pageNumber: number,
-  totalPages: number
-): string {
-  const prefix = prefixLabel(mediaIndex, totalMedia, pageNumber, totalPages);
+function formatJournalEntry(payload: ReceiptPayload): string {
+  return `## ${new Date().toISOString()} - ${payload.merchant_name} - ${payload.total_amount} ${payload.currency}
 
-  if (appendResult === "duplicate") {
-    return `${prefix}Already recorded (${payload.receipt_id}).`;
+${formatReceiptTable(payload, 5000)}
+`;
+}
+
+async function prependReceiptJournalEntry(payload: ReceiptPayload): Promise<"appended" | "duplicate"> {
+  let existing = "";
+  try {
+    existing = await readFile(RECEIPT_JOURNAL_PATH, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
   }
 
-  return `${prefix}Saved receipt: ${payload.merchant_name}
-Date: ${payload.receipt_date}
-Total: ${payload.total_amount}
-Tax: ${payload.tax_amount}
-Class: ${payload.classification}
-Review: ${payload.needs_review ? "yes" : "no"}`;
+  if (existing.includes(payload.receipt_id)) {
+    return "duplicate";
+  }
+
+  logStep("receipt.payload.full", {
+    payload
+  });
+
+  const entry = formatJournalEntry(payload);
+  const nextContent = existing.trim().length > 0 ? `${entry}\n${existing}` : `${entry}\n`;
+  await writeFile(RECEIPT_JOURNAL_PATH, nextContent, "utf8");
+
+  logReceiptOutcome({
+    receipt_id: payload.receipt_id,
+    outcome: "appended",
+    merchant_name: payload.merchant_name,
+    receipt_date: payload.receipt_date,
+    classification: payload.classification,
+    confidence: payload.confidence,
+    needs_review: payload.needs_review,
+    metadata: {
+      journal_path: RECEIPT_JOURNAL_PATH
+    }
+  });
+
+  return "appended";
 }
 
 function formatFailureMessage(error: unknown, mediaIndex: number, totalMedia: number): string {
   const prefix = prefixLabel(mediaIndex, totalMedia, 1, 1);
 
   if (error instanceof ReceiptError) {
-    if (error.code === "UNSUPPORTED_MEDIA") {
+    const receiptError = error as ReceiptError;
+    if (receiptError.code === "UNSUPPORTED_MEDIA") {
       return `${prefix}Unsupported file type. Send /receipt with a photo/image.`;
     }
-    if (error.code === "PDF_DISABLED") {
+    if (receiptError.code === "PDF_DISABLED") {
       return `${prefix}PDF intake is currently disabled. Send /receipt with a photo/image.`;
     }
-    if (error.code === "PDF_CONVERSION") {
+    if (receiptError.code === "PDF_CONVERSION") {
       return `${prefix}Could not process PDF. Install poppler-utils (pdftoppm/pdfinfo) on the gateway host.`;
     }
-    if (error.code === "MODEL_TEMPORARY") {
+    if (receiptError.code === "MODEL_TEMPORARY") {
       return `${prefix}Temporary parsing error from model provider. Retry in a minute.`;
     }
-    if (error.code === "MODEL_PERMANENT") {
+    if (receiptError.code === "MODEL_PERMANENT") {
       return `${prefix}Could not parse receipt reliably; marked for review.`;
     }
-    if (error.code === "SHEETS_READ" || error.code === "SHEETS_WRITE") {
+    if (receiptError.code === "SHEETS_READ" || receiptError.code === "SHEETS_WRITE") {
       return `${prefix}Could not save to sheet; check Google Sheets configuration and permissions.`;
     }
-    if (error.code === "MEDIA_FETCH") {
-      if (error.status === 413) {
+    if (receiptError.code === "MEDIA_FETCH") {
+      if (receiptError.status === 413) {
         return `${prefix}File is too large for processing. Send a smaller image/PDF.`;
       }
       return `${prefix}Could not download attachment from Telegram.`;
@@ -654,7 +802,7 @@ async function checkMistralHealth(): Promise<MistralHealthResult> {
 }
 
 function formatMistralHealthMessage(result: MistralHealthResult): string {
-  if (result.ok) {
+  if (result.ok === true) {
     return `Model connectivity: OK
 Provider: mistral
 Configured model: ${result.model}
@@ -663,17 +811,31 @@ Latency: ${result.latencyMs}ms
 Sample: ${result.sample}`;
   }
 
-  const statusLine = result.status ? `Status: ${result.status}\n` : "";
-  const detailsLine = result.details ? `Details: ${result.details}\n` : "";
+  const failure = result as Extract<MistralHealthResult, { ok: false }>;
+  const statusLine = failure.status ? `Status: ${failure.status}\n` : "";
+  const detailsLine = failure.details ? `Details: ${failure.details}\n` : "";
   return `Model connectivity: FAILED
 Provider: mistral
-Configured model: ${result.model}
-${statusLine}${detailsLine}Error: ${result.error}
-Latency: ${result.latencyMs}ms`;
+Configured model: ${failure.model}
+${statusLine}${detailsLine}Error: ${failure.error}
+Latency: ${failure.latencyMs}ms`;
 }
 
 function parseConfirmationAction(text: string): ConfirmationAction | null {
   const normalized = text.trim();
+
+  if (normalized.startsWith(CALLBACK_CONFIRM_PREFIX)) {
+    return {
+      decision: "confirm",
+      token: normalized.slice(CALLBACK_CONFIRM_PREFIX.length)
+    };
+  }
+  if (normalized.startsWith(CALLBACK_REJECT_PREFIX)) {
+    return {
+      decision: "reject",
+      token: normalized.slice(CALLBACK_REJECT_PREFIX.length)
+    };
+  }
 
   const callbackMatch = normalized.match(/^callback_data:\s*(.+)$/i);
   const callbackPayload = callbackMatch?.[1]?.trim() ?? "";
@@ -771,11 +933,11 @@ async function sendTelegramInlineConfirmation(chatId: string, text: string, toke
           inline_keyboard: [
             [
               {
-                text: "Confirm",
+                text: "Yes",
                 callback_data: `${CALLBACK_CONFIRM_PREFIX}${token}`
               },
               {
-                text: "Cancel",
+                text: "No",
                 callback_data: `${CALLBACK_REJECT_PREFIX}${token}`
               }
             ]
@@ -871,13 +1033,25 @@ function suppressDownstreamProcessing(event: any, reason: string): void {
   });
 }
 
-async function handleConfirmation(event: any, action: ConfirmationAction): Promise<boolean> {
+async function sendControlledText(event: any, telegramChatId: string | null, text: string): Promise<void> {
+  const sentDirect = telegramChatId !== null ? await sendTelegramTextMessage(telegramChatId, text) : false;
+  if (!sentDirect) {
+    pushMessage(event, text);
+  }
+}
+
+async function handleConfirmation(
+  event: any,
+  action: ConfirmationAction,
+  telegramChatId: string | null
+): Promise<boolean> {
   prunePendingConfirmations();
 
   const pending = pendingConfirmations.get(action.token);
   if (!pending) {
-    pushMessage(
+    await sendControlledText(
       event,
+      telegramChatId,
       "Receipt confirmation token is missing or expired. Re-send /receipt with the image to parse again."
     );
     return true;
@@ -886,27 +1060,21 @@ async function handleConfirmation(event: any, action: ConfirmationAction): Promi
   if (action.decision === "reject") {
     pendingConfirmations.delete(action.token);
     const prefix = prefixLabel(pending.mediaIndex, pending.totalMedia, pending.pageNumber, pending.totalPages);
-    pushMessage(event, `${prefix}Cancelled. Receipt was not saved.`);
+    await sendControlledText(event, telegramChatId, `${prefix}No changes made. Receipt was not saved.`);
     return true;
   }
 
   try {
-    const appendResult = await persistReceiptPayload(pending.payload);
+    const appendResult = await prependReceiptJournalEntry(pending.payload);
     pendingConfirmations.delete(action.token);
-
-    pushMessage(
-      event,
-      formatSavedMessage(
-        pending.payload,
-        appendResult,
-        pending.mediaIndex,
-        pending.totalMedia,
-        pending.pageNumber,
-        pending.totalPages
-      )
-    );
+    const prefix = prefixLabel(pending.mediaIndex, pending.totalMedia, pending.pageNumber, pending.totalPages);
+    const savedMessage =
+      appendResult === "duplicate"
+        ? `${prefix}Already recorded in receipt-journal.md (${pending.payload.receipt_id}).`
+        : `${prefix}Saved to receipt-journal.md (${pending.payload.receipt_id}).`;
+    await sendControlledText(event, telegramChatId, savedMessage);
   } catch (error) {
-    pushMessage(event, formatFailureMessage(error, pending.mediaIndex, pending.totalMedia));
+    await sendControlledText(event, telegramChatId, formatFailureMessage(error, pending.mediaIndex, pending.totalMedia));
   }
 
   return true;
@@ -920,7 +1088,7 @@ async function parseAndQueueReceipt(
   pageNumber: number,
   totalPages: number,
   responses: string[]
-): Promise<void> {
+): Promise<boolean> {
   const payload = await buildReceiptPayload(input);
   const token = savePendingConfirmation(payload, mediaIndex, totalMedia, pageNumber, totalPages);
   const previewText = formatConfirmationPreview(payload, mediaIndex, totalMedia, pageNumber, totalPages);
@@ -930,15 +1098,14 @@ async function parseAndQueueReceipt(
       ? await sendTelegramInlineConfirmation(telegramChatId, previewText, token)
       : false;
   if (sentWithButtons) {
-    const prefix = prefixLabel(mediaIndex, totalMedia, pageNumber, totalPages);
-    responses.push(`${prefix}Parsed. Confirm or cancel using the button message.`);
-    return;
+    return true;
   }
 
   responses.push(`${previewText}
 
 Confirm: /receipt_confirm ${token}
 Cancel: /receipt_reject ${token}`);
+  return false;
 }
 
 const handler = async (event: any) => {
@@ -955,17 +1122,20 @@ const handler = async (event: any) => {
   });
 
   const text = pickText(event).trim();
+  const telegramChatId = pickTelegramSendChatId(event);
   const confirmationAction = parseConfirmationAction(text);
   if (confirmationAction) {
     logStep("event.confirmation", {
       decision: confirmationAction.decision,
       token: confirmationAction.token
     });
-    await handleConfirmation(event, confirmationAction);
+    suppressDownstreamProcessing(event, "receipt_confirmation");
+    await handleConfirmation(event, confirmationAction, telegramChatId);
     return;
   }
 
   if (isModelHealthCommand(text)) {
+    suppressDownstreamProcessing(event, "modelhealth_command");
     logStep("event.modelhealth.command", {
       command: text
     });
@@ -975,7 +1145,6 @@ const handler = async (event: any) => {
       ok: health.ok,
       outputPreview: preview(healthMessage)
     });
-    const telegramChatId = pickTelegramSendChatId(event);
     logStep("event.modelhealth.telegram_target", {
       resolvedChatId: telegramChatId ?? "(null)",
       fallbackChatId: pickChatId(event),
@@ -1013,9 +1182,14 @@ const handler = async (event: any) => {
     return;
   }
 
-  if (!isReceiptCommand(text)) return;
+  if (!isReceiptCommand(text)) {
+    suppressDownstreamProcessing(event, "unsupported_telegram_message");
+    await sendControlledText(event, telegramChatId, "Unsupported message. Use /receipt with an image or /modelhealth.");
+    return;
+  }
 
   const mediaCandidates = collectMediaCandidates(event, text);
+  suppressDownstreamProcessing(event, "receipt_command");
   logStep("event.receipt.media_candidates", {
     count: mediaCandidates.length,
     candidates: mediaCandidates.map((candidate) => ({
@@ -1026,15 +1200,16 @@ const handler = async (event: any) => {
   });
 
   if (mediaCandidates.length === 0) {
-    pushMessage(event, "Send /receipt together with a photo/image.");
+    const message = "Send /receipt together with a photo/image.";
+    await sendControlledText(event, telegramChatId, message);
     return;
   }
 
   const chatId = pickChatId(event);
-  const telegramChatId = pickTelegramSendChatId(event);
   const baseMessageId = pickMessageId(event);
   const receivedAt = new Date(event?.timestamp ?? Date.now()).toISOString();
   const responses: string[] = [];
+  let sentDirectConfirmation = false;
 
   const hintedImages = mediaCandidates.filter((media) => normalizeMimeType(media.mimeType, media.url).startsWith("image/"));
   const hintedPdfs = mediaCandidates.filter((media) => normalizeMimeType(media.mimeType, media.url) === "application/pdf");
@@ -1060,22 +1235,14 @@ const handler = async (event: any) => {
         hintedMime: media.mimeType ?? "(none)"
       });
 
-      const response = await fetch(media.url);
-      if (!response.ok) {
-        throw new ReceiptError("MEDIA_FETCH", "Could not download media.", {
-          status: response.status
-        });
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const binary = Buffer.from(arrayBuffer);
-      const mimeType = normalizeMimeType(media.mimeType ?? response.headers.get("content-type") ?? undefined, media.url);
+      const { binary, mimeType, resolvedFrom } = await readMediaCandidate(media);
 
       logStep("event.receipt.fetch.ok", {
         mediaIndex,
         sizeBytes: binary.byteLength,
         mimeType,
-        isPdf: mimeType === "application/pdf"
+        isPdf: mimeType === "application/pdf",
+        resolvedFrom: preview(resolvedFrom, 160)
       });
 
       const isPdf = mimeType === "application/pdf";
@@ -1108,7 +1275,7 @@ const handler = async (event: any) => {
             mimeType: page.mimeType
           };
 
-          await parseAndQueueReceipt(
+          const sentDirect = await parseAndQueueReceipt(
             input,
             telegramChatId,
             mediaIndex,
@@ -1117,6 +1284,7 @@ const handler = async (event: any) => {
             pages.length,
             responses
           );
+          sentDirectConfirmation = sentDirectConfirmation || sentDirect;
 
           logStep("event.receipt.pdf.page_parsed", {
             mediaIndex,
@@ -1142,7 +1310,8 @@ const handler = async (event: any) => {
         mimeType
       };
 
-      await parseAndQueueReceipt(input, telegramChatId, mediaIndex, imageFirstCandidates.length, 1, 1, responses);
+      const sentDirect = await parseAndQueueReceipt(input, telegramChatId, mediaIndex, imageFirstCandidates.length, 1, 1, responses);
+      sentDirectConfirmation = sentDirectConfirmation || sentDirect;
       logStep("event.receipt.image_parsed", {
         mediaIndex,
         total: imageFirstCandidates.length,
@@ -1175,7 +1344,12 @@ const handler = async (event: any) => {
       count: responses.length,
       outputPreview: preview(responses.join("\n\n"))
     });
-    pushMessage(event, responses.join("\n\n"));
+    await sendControlledText(event, telegramChatId, responses.join("\n\n"));
+    return;
+  }
+
+  if (sentDirectConfirmation) {
+    suppressDownstreamProcessing(event, "receipt_direct_confirmation");
   }
 };
 
