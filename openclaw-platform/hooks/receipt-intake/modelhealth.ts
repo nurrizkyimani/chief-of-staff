@@ -1,7 +1,7 @@
 import { env } from "../../dist/config/env.js";
-import { MISTRAL_API_BASE, WHITESPACE_SEQUENCE_PATTERN } from "./constants.js";
-import { logStep, preview } from "./logging.js";
-import type { MistralHealthResult } from "./types.js";
+import { MISTRAL_API_BASE, WHITESPACE_SEQUENCE_PATTERN } from "./constants.ts";
+import { logStep, preview } from "./logging.ts";
+import type { MistralHealthResult } from "./types.ts";
 
 // safeErrorDetails trims provider error details for user messages.
 function safeErrorDetails(details: string): string {

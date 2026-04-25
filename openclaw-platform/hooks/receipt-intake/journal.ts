@@ -1,9 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
 import type { ReceiptPayload } from "../../dist/assistants/receipt-assistant/schemas/receipt.v1.1.schema.js";
 import { logReceiptOutcome } from "../../dist/observability/receipt_logger.js";
-import { RECEIPT_JOURNAL_PATH } from "./constants.js";
-import { formatReceiptTable } from "./formatting.js";
-import { logStep } from "./logging.js";
+import { RECEIPT_JOURNAL_PATH } from "./constants.ts";
+import { formatReceiptTable } from "./formatting.ts";
+import { logStep } from "./logging.ts";
 
 // formatJournalEntry formats a receipt payload for the markdown journal.
 export function formatJournalEntry(payload: ReceiptPayload): string {

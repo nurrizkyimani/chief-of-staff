@@ -4,11 +4,11 @@ import {
 import { ReceiptError, getErrorStatus } from "../../dist/errors/receipt_errors.js";
 import { rasterizePdfBufferToJpegPages } from "../../dist/media/pdf_rasterizer.js";
 import { logReceiptOutcome } from "../../dist/observability/receipt_logger.js";
-import { MAX_PDF_PAGES } from "./constants.js";
-import { handleConfirmation, parseAndQueueReceipt } from "./confirmation-flow.js";
-import { parseConfirmationAction } from "./confirmations.js";
-import { isModelHealthCommand, isReceiptCommand } from "./commands.js";
-import { errorReason } from "./error.js";
+import { MAX_PDF_PAGES } from "./constants.ts";
+import { handleConfirmation, parseAndQueueReceipt } from "./confirmation-flow.ts";
+import { parseConfirmationAction } from "./confirmations.ts";
+import { isModelHealthCommand, isReceiptCommand } from "./commands.ts";
+import { errorReason } from "./error.ts";
 import {
   pickChatId,
   pickMessageId,
@@ -17,18 +17,18 @@ import {
   pushMessage,
   isTelegramEvent,
   suppressDownstreamProcessing
-} from "./event.js";
-import { formatFailureMessage } from "./formatting.js";
-import { describeMessageShape, logStep, preview } from "./logging.js";
+} from "./event.ts";
+import { formatFailureMessage } from "./formatting.ts";
+import { describeMessageShape, logStep, preview } from "./logging.ts";
 import {
   collectMediaCandidates,
   deriveMessageId,
   isPdfDisabled,
   normalizeMimeType,
   readMediaCandidate
-} from "./media.js";
-import { checkMistralHealth, formatMistralHealthMessage } from "./modelhealth.js";
-import { sendControlledText, sendTelegramTextMessage } from "./telegram.js";
+} from "./media.ts";
+import { checkMistralHealth, formatMistralHealthMessage } from "./modelhealth.ts";
+import { sendControlledText, sendTelegramTextMessage } from "./telegram.ts";
 
 // handler routes Telegram events through receipt, confirmation, and health flows.
 const handler = async (event: any) => {

@@ -26,6 +26,8 @@ const EnvSchema = z.object({
   RECEIPT_ACCEPT_PDF: BoolLikeSchema.default(false),
   RECEIPT_STRICT_MEMORY_ONLY: BoolLikeSchema.default(false),
   RECEIPT_JOURNAL_PATH: z.string().min(1),
+  RECEIPT_SAVE_JOURNAL: BoolLikeSchema.default(true),
+  RECEIPT_SAVE_SHEETS: BoolLikeSchema.default(true),
   RECEIPT_CONFIRMATION_TTL_MS: z.coerce.number().int().min(1).default(30 * 60 * 1000),
   NODE_ENV: z.string().default("development"),
   OPENCLAW_HOME: z.string().optional(),

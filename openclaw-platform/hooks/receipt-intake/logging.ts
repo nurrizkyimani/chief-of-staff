@@ -1,4 +1,4 @@
-import { LOG_PREFIX, LOG_PREVIEW_MAX, WHITESPACE_SEQUENCE_PATTERN } from "./constants.js";
+import { LOG_PREFIX, LOG_PREVIEW_MAX, WHITESPACE_SEQUENCE_PATTERN } from "./constants.ts";
 
 // safeJson serializes values for logging without throwing.
 export function safeJson(value: unknown): string {

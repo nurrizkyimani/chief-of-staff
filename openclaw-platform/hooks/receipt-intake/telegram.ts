@@ -1,7 +1,7 @@
 import { env } from "../../dist/config/env.js";
-import { CALLBACK_CONFIRM_PREFIX, CALLBACK_REJECT_PREFIX, TELEGRAM_API_BASE } from "./constants.js";
-import { pushMessage } from "./event.js";
-import { logStep, preview } from "./logging.js";
+import { CALLBACK_CONFIRM_PREFIX, CALLBACK_REJECT_PREFIX, TELEGRAM_API_BASE } from "./constants.ts";
+import { pushMessage } from "./event.ts";
+import { logStep, preview } from "./logging.ts";
 
 // sendTelegramInlineConfirmation sends a receipt preview with Yes/No buttons.
 export async function sendTelegramInlineConfirmation(chatId: string, text: string, token: string): Promise<boolean> {

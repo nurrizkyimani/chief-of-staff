@@ -8,8 +8,8 @@ import {
   PENDING_CONFIRMATION_TTL_MS,
   RECEIPT_CONFIRM_COMMAND_PATTERN,
   RECEIPT_REJECT_COMMAND_PATTERN
-} from "./constants.js";
-import type { ConfirmationAction, PendingConfirmation } from "./types.js";
+} from "./constants.ts";
+import type { ConfirmationAction, PendingConfirmation } from "./types.ts";
 
 const pendingConfirmations = new Map<string, PendingConfirmation>();
 

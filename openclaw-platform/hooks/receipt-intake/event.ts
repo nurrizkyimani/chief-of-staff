@@ -5,8 +5,8 @@ import {
   TELEGRAM_SENDER_CHAT_ID_PATTERN,
   TELEGRAM_TOPIC_CHAT_ID_PATTERN,
   TELEGRAM_TOPIC_SENDER_CHAT_ID_PATTERN
-} from "./constants.js";
-import { describeMessageShape, logStep, preview, safeJson } from "./logging.js";
+} from "./constants.ts";
+import { describeMessageShape, logStep, preview, safeJson } from "./logging.ts";
 
 // toText converts mixed event content into plain text.
 export function toText(value: unknown): string {

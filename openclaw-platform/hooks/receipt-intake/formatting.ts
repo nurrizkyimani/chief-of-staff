@@ -1,6 +1,6 @@
 import type { ReceiptPayload } from "../../dist/assistants/receipt-assistant/schemas/receipt.v1.1.schema.js";
 import { ReceiptError } from "../../dist/errors/receipt_errors.js";
-import { MARKDOWN_TABLE_LINE_BREAK_PATTERN, MARKDOWN_TABLE_PIPE_PATTERN } from "./constants.js";
+import { MARKDOWN_TABLE_LINE_BREAK_PATTERN, MARKDOWN_TABLE_PIPE_PATTERN } from "./constants.ts";
 
 // prefixLabel formats attachment and page labels for user messages.
 export function prefixLabel(mediaIndex: number, totalMedia: number, pageNumber: number, totalPages: number): string {
@@ -69,7 +69,7 @@ export function formatConfirmationPreview(
 
 ${formatReceiptTable(payload, 320)}
 
-Save this row to receipt-journal.md?`;
+Save this receipt to enabled destinations?`;
 }
 
 // formatFailureMessage formats a user-safe receipt failure message.

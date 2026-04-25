@@ -9,8 +9,8 @@ import {
   MESSAGE_ID_SUFFIX_DISALLOWED_CHARACTER_PATTERN,
   OPENCLAW_HOME_ROOT,
   OPENCLAW_PLATFORM_ROOT
-} from "./constants.js";
-import type { MediaCandidate, MediaReadResult } from "./types.js";
+} from "./constants.ts";
+import type { MediaCandidate, MediaReadResult } from "./types.ts";
 
 // normalizeMimeType resolves a media MIME type from metadata or URL.
 export function normalizeMimeType(candidateMime: string | undefined, url: string): string {

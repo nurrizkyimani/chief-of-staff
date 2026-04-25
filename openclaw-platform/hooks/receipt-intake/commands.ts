@@ -1,4 +1,4 @@
-import { MODEL_HEALTH_COMMAND_PATTERN, RECEIPT_COMMAND_PATTERN } from "./constants.js";
+import { MODEL_HEALTH_COMMAND_PATTERN, RECEIPT_COMMAND_PATTERN } from "./constants.ts";
 
 // isReceiptCommand checks whether text asks for receipt intake.
 export function isReceiptCommand(text: string): boolean {

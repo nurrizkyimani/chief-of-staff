@@ -7,11 +7,15 @@ import {
   getPendingConfirmation,
   prunePendingConfirmations,
   savePendingConfirmation
-} from "./confirmations.js";
-import { formatConfirmationPreview, formatFailureMessage, prefixLabel } from "./formatting.js";
-import { prependReceiptJournalEntry } from "./journal.js";
-import { sendControlledText, sendTelegramInlineConfirmation } from "./telegram.js";
-import type { ConfirmationAction } from "./types.js";
+} from "./confirmations.ts";
+import { formatConfirmationPreview, formatFailureMessage, prefixLabel } from "./formatting.ts";
+import {
+  formatConfirmedReceiptSaveMessage,
+  hasFailedEnabledSink,
+  saveConfirmedReceipt
+} from "./save-confirmed.ts";
+import { sendControlledText, sendTelegramInlineConfirmation } from "./telegram.ts";
+import type { ConfirmationAction } from "./types.ts";
 
 // handleConfirmation applies a saved receipt confirmation decision.
 export async function handleConfirmation(
@@ -39,13 +43,12 @@ export async function handleConfirmation(
   }
 
   try {
-    const appendResult = await prependReceiptJournalEntry(pending.payload);
-    deletePendingConfirmation(action.token);
+    const result = await saveConfirmedReceipt(pending.payload);
     const prefix = prefixLabel(pending.mediaIndex, pending.totalMedia, pending.pageNumber, pending.totalPages);
-    const savedMessage =
-      appendResult === "duplicate"
-        ? `${prefix}Already recorded in receipt-journal.md (${pending.payload.receipt_id}).`
-        : `${prefix}Saved to receipt-journal.md (${pending.payload.receipt_id}).`;
+    const savedMessage = formatConfirmedReceiptSaveMessage(result, pending.payload.receipt_id, prefix);
+    if (!hasFailedEnabledSink(result)) {
+      deletePendingConfirmation(action.token);
+    }
     await sendControlledText(event, telegramChatId, savedMessage);
   } catch (error) {
     await sendControlledText(event, telegramChatId, formatFailureMessage(error, pending.mediaIndex, pending.totalMedia));
