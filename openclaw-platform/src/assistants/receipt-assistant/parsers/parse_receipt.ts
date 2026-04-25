@@ -65,7 +65,7 @@ Rules:
   subscription = recurring digital services
   nonfood = clearly none of the other categories
 - confidence between 0 and 1
-- if tax not found set tax_amount=0 and tax_label_raw=""
+- if tax not found set tax_amount=0 and tax_label_raw="NOT_EXIST"
 - If multiple total-like labels exist, apply this priority:
   1) Grand Total
   2) Total Bill

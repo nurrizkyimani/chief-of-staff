@@ -14,7 +14,7 @@ Rules:
 - receipt_date must be `YYYY-MM-DD`.
 - total_amount and tax_amount must be numeric.
 - confidence must be between `0` and `1`.
-- If tax is missing, set `tax_amount=0` and `tax_label_raw=""`.
+- If tax is missing, set `tax_amount=0` and `tax_label_raw="NOT_EXIST"`.
 - If multiple total labels appear, use this order:
 1. Grand Total
 2. Total Bill
