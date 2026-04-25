@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.openclaw-home
+.secrets
+*.log
+# Local cloud credentials
+gcp-service-acc.json
+*.service-account.json

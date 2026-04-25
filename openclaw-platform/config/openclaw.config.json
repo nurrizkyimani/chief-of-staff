@@ -1,0 +1,80 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "mistral/mistral-small-latest"
+      },
+      "sandbox": {
+        "mode": "all",
+        "backend": "docker",
+        "scope": "session",
+        "workspaceAccess": "rw",
+        "docker": {
+          "image": "openclaw-sandbox:bookworm-slim",
+          "network": "none"
+        }
+      },
+      "thinkingDefault": "off"
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "capabilities": {
+        "inlineButtons": "allowlist"
+      },
+      "allowFrom": [
+        "telegram:380399260"
+      ],
+      "groupAllowFrom": [
+        "telegram:380399260"
+      ],
+      "groups": {
+        "*": {
+          "requireMention": true
+        }
+      },
+      "streaming": {
+        "mode": "off"
+      }
+    }
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "load": {
+        "extraDirs": [
+          "/Users/nurrizky/dev/chief-of-staff/openclaw-platform/hooks"
+        ]
+      },
+      "entries": {
+        "receipt-intake": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token"
+    }
+  },
+  "plugins": {
+    "load": {
+      "paths": [
+        "/Users/nurrizky/dev/chief-of-staff/openclaw-platform/plugins/receipt-gate"
+      ]
+    },
+    "entries": {
+      "receipt-gate": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": false
+      }
+    }
+  }
+}

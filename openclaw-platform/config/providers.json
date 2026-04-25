@@ -1,0 +1,12 @@
+{
+  "defaultProvider": "mistral",
+  "models": {
+    "receipt_intake": "mistral/mistral-small-latest"
+  },
+  "requiredEnv": [
+    "MISTRAL_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "RECEIPT_SPREADSHEET_ID"
+  ]
+}
