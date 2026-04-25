@@ -27,7 +27,10 @@ export const RECEIPT_REJECT_COMMAND_PATTERN = /^\/receipt_reject\s+([A-Za-z0-9_-
 export const CONFIRMATION_TOKEN_NON_ALPHANUMERIC_DASH_UNDERSCORE_PATTERN = /[^A-Za-z0-9_-]/g;
 
 // RECEIPT_COMMAND_PATTERN matches the /receipt command as a standalone command word.
-export const RECEIPT_COMMAND_PATTERN = /(^|\s)\/receipt(?:\s|$)/i;
+export const RECEIPT_COMMAND_PATTERN = /(^|\s)\/receipt(?:@\w+)?(?:\s|$)/i;
+
+// INCOME_COMMAND_PATTERN matches the /income command as a standalone command word.
+export const INCOME_COMMAND_PATTERN = /(^|\s)\/income(?:@\w+)?(?:\s|$)/i;
 
 // MODEL_HEALTH_COMMAND_PATTERN matches /modelhealth with an optional bot username.
 export const MODEL_HEALTH_COMMAND_PATTERN = /(^|\s)\/modelhealth(?:@\w+)?(?:\s|$)/i;

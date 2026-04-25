@@ -7,7 +7,7 @@ import { logReceiptOutcome } from "../../dist/observability/receipt_logger.js";
 import { MAX_PDF_PAGES } from "./constants.ts";
 import { handleConfirmation, parseAndQueueReceipt } from "./confirmation-flow.ts";
 import { parseConfirmationAction } from "./confirmations.ts";
-import { isModelHealthCommand, isReceiptCommand } from "./commands.ts";
+import { isModelHealthCommand, resolveReceiptIntent } from "./commands.ts";
 import { errorReason } from "./error.ts";
 import {
   pickChatId,
@@ -111,17 +111,33 @@ const handler = async (event: any) => {
     return;
   }
 
-  // Phase 06: Reject unsupported Telegram messages with a controlled response.
-  if (!isReceiptCommand(text)) {
-    suppressDownstreamProcessing(event, "unsupported_telegram_message");
-    await sendControlledText(event, telegramChatId, "Unsupported message. Use /receipt with an image or /modelhealth.");
+  // Phase 06: Collect receipt media before routing; media now defaults to receipt intake.
+  const mediaCandidates = collectMediaCandidates(event, text);
+  const intentResolution = resolveReceiptIntent(text, mediaCandidates.length > 0);
+
+  if (intentResolution.status === "ambiguous") {
+    suppressDownstreamProcessing(event, "receipt_ambiguous_intent");
+    await sendControlledText(event, telegramChatId, "Use either /receipt or /income with media, not both.");
     return;
   }
 
-  // Phase 07: Collect receipt media and suppress the default assistant path.
-  const mediaCandidates = collectMediaCandidates(event, text);
-  suppressDownstreamProcessing(event, "receipt_command");
+  if (intentResolution.status === "missing_media") {
+    suppressDownstreamProcessing(event, "receipt_missing_media");
+    const label = intentResolution.intent === "income" ? "income" : "receipt";
+    await sendControlledText(event, telegramChatId, `Upload receipt media with /${label}.`);
+    return;
+  }
+
+  if (intentResolution.status === "unsupported") {
+    suppressDownstreamProcessing(event, "unsupported_telegram_message");
+    await sendControlledText(event, telegramChatId, "Send receipt media to parse it, use /income with media for income, or use /modelhealth.");
+    return;
+  }
+
+  suppressDownstreamProcessing(event, `receipt_${intentResolution.source}`);
   logStep("event.receipt.media_candidates", {
+    intent: intentResolution.intent,
+    intentSource: intentResolution.source,
     count: mediaCandidates.length,
     candidates: mediaCandidates.map((candidate) => ({
       url: preview(candidate.url, 120),
@@ -130,20 +146,14 @@ const handler = async (event: any) => {
     }))
   });
 
-  if (mediaCandidates.length === 0) {
-    const message = "Send /receipt together with a photo/image.";
-    await sendControlledText(event, telegramChatId, message);
-    return;
-  }
-
-  // Phase 08: Build stable receipt source metadata for all parsed attachments.
+  // Phase 07: Build stable receipt source metadata for all parsed attachments.
   const chatId = pickChatId(event);
   const baseMessageId = pickMessageId(event);
   const receivedAt = new Date(event?.timestamp ?? Date.now()).toISOString();
   const responses: string[] = [];
   let sentDirectConfirmation = false;
 
-  // Phase 09: Prefer image attachments; skip PDFs when images are present.
+  // Phase 08: Prefer image attachments; skip PDFs when images are present.
   const hintedImages = mediaCandidates.filter((media) => normalizeMimeType(media.mimeType, media.url).startsWith("image/"));
   const hintedPdfs = mediaCandidates.filter((media) => normalizeMimeType(media.mimeType, media.url) === "application/pdf");
   const hintedUnknown = mediaCandidates.filter((media) => {
@@ -157,7 +167,7 @@ const handler = async (event: any) => {
     responses.push(`Ignored ${skippedPdfCount} PDF attachment(s). Image-first mode is active.`);
   }
 
-  // Phase 10: Read each selected media item and queue parsed receipts for confirmation.
+  // Phase 09: Read each selected media item and queue parsed receipts for confirmation.
   for (let mediaIndex = 0; mediaIndex < imageFirstCandidates.length; mediaIndex += 1) {
     const media = imageFirstCandidates[mediaIndex];
 
@@ -207,7 +217,10 @@ const handler = async (event: any) => {
             messageId,
             receivedAt,
             imageBase64: page.imageBase64,
-            mimeType: page.mimeType
+            mimeType: page.mimeType,
+            intent: intentResolution.intent,
+            intentSource: intentResolution.source,
+            captionText: text || undefined
           };
 
           const sentDirect = await parseAndQueueReceipt(
@@ -243,7 +256,10 @@ const handler = async (event: any) => {
         messageId,
         receivedAt,
         imageBase64: binary.toString("base64"),
-        mimeType
+        mimeType,
+        intent: intentResolution.intent,
+        intentSource: intentResolution.source,
+        captionText: text || undefined
       };
 
       const sentDirect = await parseAndQueueReceipt(input, telegramChatId, mediaIndex, imageFirstCandidates.length, 1, 1, responses);

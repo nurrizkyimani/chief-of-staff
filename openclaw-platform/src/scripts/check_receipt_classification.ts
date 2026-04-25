@@ -16,6 +16,10 @@ const fallbackDecision = applyPersonalClassificationOverride("mobility", "Unknow
 assert.equal(fallbackDecision.finalClassification, "mobility");
 assert.equal(fallbackDecision.classificationSource, "mistral");
 
+const incomeDecision = applyPersonalClassificationOverride("income", "BCA Transfer", "Transfer received");
+assert.equal(incomeDecision.finalClassification, "income");
+assert.equal(incomeDecision.classificationSource, "mistral");
+
 const invalidDecision = applyPersonalClassificationOverride("not-a-category", "Unknown Merchant", "No matching override");
 assert.equal(invalidDecision.finalClassification, "nonfood");
 assert.equal(invalidDecision.classificationSource, "fallback");

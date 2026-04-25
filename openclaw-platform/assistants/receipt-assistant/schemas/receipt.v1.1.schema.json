@@ -62,7 +62,8 @@
         "mobility",
         "groceries",
         "nonfood",
-        "subscription"
+        "subscription",
+        "income"
       ]
     },
     "currency": {

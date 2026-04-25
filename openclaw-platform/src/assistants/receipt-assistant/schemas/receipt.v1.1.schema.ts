@@ -19,7 +19,8 @@ export const ReceiptPayloadSchema = z.object({
     "mobility",
     "groceries",
     "nonfood",
-    "subscription"
+    "subscription",
+    "income"
   ]),
   currency: z.string().default("IDR"),
   month_key: z.string().regex(/^\d{4}-\d{2}$/),

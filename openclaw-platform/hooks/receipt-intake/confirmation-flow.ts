@@ -29,9 +29,9 @@ export async function handleConfirmation(
   if (!pending) {
     await sendControlledText(
       event,
-      telegramChatId,
-      "Receipt confirmation token is missing or expired. Re-send /receipt with the image to parse again."
-    );
+        telegramChatId,
+        "Receipt confirmation token is missing or expired. Re-send the media to parse again."
+      );
     return true;
   }
 

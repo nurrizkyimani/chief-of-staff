@@ -17,6 +17,8 @@ export type ReceiptParseCandidate = {
   confidence: number;
 };
 
+export type ReceiptParseIntent = "receipt" | "income";
+
 const MODEL_MAX_ATTEMPTS = 3;
 const MODEL_BASE_BACKOFF_MS = 750;
 const MISTRAL_CHAT_COMPLETIONS_URL = "https://api.mistral.ai/v1/chat/completions";
@@ -57,12 +59,13 @@ merchant_name, receipt_date, total_amount, tax_amount, tax_label_raw, classifica
 Rules:
 - receipt_date format: YYYY-MM-DD
 - total_amount and tax_amount numeric only
-- classification must be exactly one of: food, mobility, groceries, nonfood, subscription
+- classification must be exactly one of: food, mobility, groceries, nonfood, subscription, income
 - classification guidance:
   food = restaurants, cafes, bakeries, fast food, meals, drinks, food delivery
   mobility = ride hailing, fuel, parking, toll, public transport
   groceries = minimarkets, supermarkets, grocery or household staples shopping
   subscription = recurring digital services
+  income = incoming money such as salary, reimbursement, transfer received, or payment received
   nonfood = clearly none of the other categories
 - confidence between 0 and 1
 - if tax not found set tax_amount=0 and tax_label_raw="NOT_EXIST"
@@ -120,7 +123,7 @@ function contentToString(content: string | MistralMessageContentPart[] | undefin
     .trim();
 }
 
-async function callMistralParse(imageBase64: string, mimeType: string): Promise<string> {
+async function callMistralParse(imageBase64: string, mimeType: string, intent: ReceiptParseIntent): Promise<string> {
   const response = await fetch(MISTRAL_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
@@ -148,7 +151,7 @@ async function callMistralParse(imageBase64: string, mimeType: string): Promise<
           content: [
             {
               type: "text",
-              text: "Parse this receipt."
+              text: intent === "income" ? "Parse this income-related receipt or transfer record." : "Parse this receipt."
             },
             {
               type: "image_url",
@@ -179,12 +182,12 @@ async function callMistralParse(imageBase64: string, mimeType: string): Promise<
   return outputText;
 }
 
-async function callModelWithRetries(imageBase64: string, mimeType: string): Promise<string> {
+async function callModelWithRetries(imageBase64: string, mimeType: string, intent: ReceiptParseIntent): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MODEL_MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await callMistralParse(imageBase64, mimeType);
+      return await callMistralParse(imageBase64, mimeType, intent);
     } catch (error) {
       lastError = error;
       const retryable = isRetryableModelError(error);
@@ -211,8 +214,12 @@ async function callModelWithRetries(imageBase64: string, mimeType: string): Prom
   });
 }
 
-export async function extractReceiptFromImage(imageBase64: string, mimeType: string): Promise<ReceiptParseCandidate> {
-  const outputText = await callModelWithRetries(imageBase64, mimeType);
+export async function extractReceiptFromImage(
+  imageBase64: string,
+  mimeType: string,
+  intent: ReceiptParseIntent = "receipt"
+): Promise<ReceiptParseCandidate> {
+  const outputText = await callModelWithRetries(imageBase64, mimeType, intent);
 
   try {
     return JSON.parse(outputText) as ReceiptParseCandidate;

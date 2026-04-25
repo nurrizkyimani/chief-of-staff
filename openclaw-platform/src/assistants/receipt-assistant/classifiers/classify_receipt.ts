@@ -7,7 +7,8 @@ export const receiptClassifications = [
   "mobility",
   "groceries",
   "nonfood",
-  "subscription"
+  "subscription",
+  "income"
 ] as const;
 
 export type ReceiptClassification = (typeof receiptClassifications)[number];

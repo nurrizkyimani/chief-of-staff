@@ -27,6 +27,10 @@ export type ConfirmationAction = {
   decision: "confirm" | "reject";
 };
 
+export type ReceiptIntent = "receipt" | "income";
+
+export type ReceiptIntentSource = "media_default" | "receipt_command" | "income_command";
+
 export type MistralHealthResult =
   | {
       ok: true;

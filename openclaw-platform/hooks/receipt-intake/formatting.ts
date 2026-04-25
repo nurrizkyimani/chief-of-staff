@@ -65,11 +65,13 @@ export function formatConfirmationPreview(
   totalPages: number
 ): string {
   const prefix = prefixLabel(mediaIndex, totalMedia, pageNumber, totalPages);
-  return `${prefix}Parsed receipt (not saved yet)
+  const isIncome = payload.classification === "income";
+  const label = isIncome ? "income record" : "receipt";
+  return `${prefix}Parsed ${label} (not saved yet)
 
 ${formatReceiptTable(payload, 320)}
 
-Save this receipt to enabled destinations?`;
+Save this ${label} to enabled destinations?`;
 }
 
 // formatFailureMessage formats a user-safe receipt failure message.
@@ -79,10 +81,10 @@ export function formatFailureMessage(error: unknown, mediaIndex: number, totalMe
   if (error instanceof ReceiptError) {
     const receiptError = error as ReceiptError;
     if (receiptError.code === "UNSUPPORTED_MEDIA") {
-      return `${prefix}Unsupported file type. Send /receipt with a photo/image.`;
+      return `${prefix}Unsupported file type. Send receipt media, or use /income with media for income.`;
     }
     if (receiptError.code === "PDF_DISABLED") {
-      return `${prefix}PDF intake is currently disabled. Send /receipt with a photo/image.`;
+      return `${prefix}PDF intake is currently disabled. Send an image receipt, or use /income with an image for income.`;
     }
     if (receiptError.code === "PDF_CONVERSION") {
       return `${prefix}Could not process PDF. Install poppler-utils (pdftoppm/pdfinfo) on the gateway host.`;
