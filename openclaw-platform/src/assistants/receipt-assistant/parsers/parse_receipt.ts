@@ -1,5 +1,9 @@
 import { env } from "../../../config/env.js";
-import { classifyReceipt } from "../classifiers/classify_receipt.js";
+import {
+  applyPersonalClassificationOverride,
+  receiptClassifications,
+  type ClassificationDecision
+} from "../classifiers/classify_receipt.js";
 import { ReceiptError, getErrorStatus } from "../../../errors/receipt_errors.js";
 
 export type ReceiptParseCandidate = {
@@ -8,6 +12,7 @@ export type ReceiptParseCandidate = {
   total_amount: number;
   tax_amount: number;
   tax_label_raw: string;
+  classification?: unknown;
   raw_text: string;
   confidence: number;
 };
@@ -25,6 +30,10 @@ const RECEIPT_SCHEMA = {
     total_amount: { type: "number" },
     tax_amount: { type: "number" },
     tax_label_raw: { type: "string" },
+    classification: {
+      type: "string",
+      enum: receiptClassifications
+    },
     raw_text: { type: "string" },
     confidence: { type: "number" }
   },
@@ -34,6 +43,7 @@ const RECEIPT_SCHEMA = {
     "total_amount",
     "tax_amount",
     "tax_label_raw",
+    "classification",
     "raw_text",
     "confidence"
   ]
@@ -43,10 +53,17 @@ const parserInstructions = `
 You are a receipt parser.
 Extract only from visible printed values.
 Output strict JSON with keys:
-merchant_name, receipt_date, total_amount, tax_amount, tax_label_raw, raw_text, confidence.
+merchant_name, receipt_date, total_amount, tax_amount, tax_label_raw, classification, raw_text, confidence.
 Rules:
 - receipt_date format: YYYY-MM-DD
 - total_amount and tax_amount numeric only
+- classification must be exactly one of: food, mobility, groceries, nonfood, subscription
+- classification guidance:
+  food = restaurants, cafes, bakeries, fast food, meals, drinks, food delivery
+  mobility = ride hailing, fuel, parking, toll, public transport
+  groceries = minimarkets, supermarkets, grocery or household staples shopping
+  subscription = recurring digital services
+  nonfood = clearly none of the other categories
 - confidence between 0 and 1
 - if tax not found set tax_amount=0 and tax_label_raw=""
 - If multiple total-like labels exist, apply this priority:
@@ -220,6 +237,6 @@ export function buildMonthKey(receiptDate: string): string {
   return receiptDate.slice(0, 7);
 }
 
-export function classifyReceiptFromCandidate(candidate: ReceiptParseCandidate): ReturnType<typeof classifyReceipt> {
-  return classifyReceipt(candidate.merchant_name, candidate.raw_text);
+export function classifyReceiptFromCandidate(candidate: ReceiptParseCandidate): ClassificationDecision {
+  return applyPersonalClassificationOverride(candidate.classification, candidate.merchant_name, candidate.raw_text);
 }

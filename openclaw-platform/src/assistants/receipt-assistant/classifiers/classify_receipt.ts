@@ -1,64 +1,111 @@
-const subscriptionKeywords = [
-  "spotify",
-  "netflix",
-  "youtube premium",
-  "chatgpt",
-  "icloud",
-  "canva",
-  "notion",
-  "midjourney"
-];
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const mobilityKeywords = [
-  "gojek",
-  "grab ride",
-  "bluebird",
-  "transjakarta",
-  "mrt",
-  "krl",
-  "toll",
-  "parkir",
-  "pertamina",
-  "shell"
-];
+export const receiptClassifications = [
+  "food",
+  "mobility",
+  "groceries",
+  "nonfood",
+  "subscription"
+] as const;
 
-const groceriesKeywords = [
-  "alfamart",
-  "indomaret",
-  "minimarket",
-  "supermarket",
-  "hypermart"
-];
+export type ReceiptClassification = (typeof receiptClassifications)[number];
 
-const foodKeywords = [
-  "restaurant",
-  "rumah makan",
-  "kopi",
-  "coffee",
-  "cafe",
-  "gofood",
-  "grabfood",
-  "shopeefood",
-  "delivery order"
-];
+export type ClassificationSource =
+  | "mistral"
+  | "personal_override"
+  | "fallback";
 
-function hasAnyKeyword(text: string, keywords: string[]): boolean {
-  return keywords.some((keyword) => text.includes(keyword));
+export type ClassificationDecision = {
+  modelClassification: ReceiptClassification | string;
+  finalClassification: ReceiptClassification;
+  classificationSource: ClassificationSource;
+  matchedOverride?: string;
+};
+
+type OverrideConfig = Partial<Record<ReceiptClassification, string[]>>;
+
+const DEFAULT_MODEL_CLASSIFICATION: ReceiptClassification = "nonfood";
+const CONFIG_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../../config/receipt-classification-overrides.json"
+);
+
+// isReceiptClassification checks whether a value is an allowed receipt classification.
+export function isReceiptClassification(value: unknown): value is ReceiptClassification {
+  return typeof value === "string" && receiptClassifications.includes(value as ReceiptClassification);
 }
 
-export function classifyReceipt(merchantName: string, rawText: string): ReceiptClassification {
+// loadOverrideConfig reads personal classification override keywords from config.
+function loadOverrideConfig(): OverrideConfig {
+  try {
+    const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8")) as unknown;
+    if (!raw || typeof raw !== "object") return {};
+
+    const config: OverrideConfig = {};
+    for (const classification of receiptClassifications) {
+      const keywords = (raw as Record<string, unknown>)[classification];
+      if (!Array.isArray(keywords)) continue;
+
+      config[classification] = keywords
+        .filter((keyword): keyword is string => typeof keyword === "string")
+        .map((keyword) => keyword.trim().toLowerCase())
+        .filter((keyword) => keyword.length > 0);
+    }
+
+    return config;
+  } catch {
+    return {};
+  }
+}
+
+// findPersonalOverride returns the first personal override that matches the receipt text.
+function findPersonalOverride(merchantName: string, rawText: string): {
+  classification: ReceiptClassification;
+  keyword: string;
+} | null {
   const normalized = `${merchantName} ${rawText}`.toLowerCase();
+  const config = loadOverrideConfig();
 
-  if (hasAnyKeyword(normalized, subscriptionKeywords)) return "subscription";
-  if (hasAnyKeyword(normalized, mobilityKeywords)) return "mobility";
-  if (hasAnyKeyword(normalized, groceriesKeywords)) return "groceries";
-  if (hasAnyKeyword(normalized, foodKeywords)) return "food";
-  return "nonfood";
+  for (const classification of receiptClassifications) {
+    const keywords = config[classification] ?? [];
+    const keyword = keywords.find((candidate) => normalized.includes(candidate));
+    if (keyword) {
+      return {
+        classification,
+        keyword
+      };
+    }
+  }
+
+  return null;
 }
 
-export type ReceiptClassification =
-  | "food"
-  | "mobility"
-  | "groceries"
-  | "nonfood"
-  | "subscription";
+// applyPersonalClassificationOverride keeps Mistral's classification unless a personal rule matches.
+export function applyPersonalClassificationOverride(
+  modelClassification: unknown,
+  merchantName: string,
+  rawText: string
+): ClassificationDecision {
+  const validModelClassification = isReceiptClassification(modelClassification)
+    ? modelClassification
+    : DEFAULT_MODEL_CLASSIFICATION;
+  const fallbackUsed = !isReceiptClassification(modelClassification);
+  const override = findPersonalOverride(merchantName, rawText);
+
+  if (override) {
+    return {
+      modelClassification: typeof modelClassification === "string" ? modelClassification : "missing",
+      finalClassification: override.classification,
+      classificationSource: "personal_override",
+      matchedOverride: override.keyword
+    };
+  }
+
+  return {
+    modelClassification: typeof modelClassification === "string" ? modelClassification : "missing",
+    finalClassification: validModelClassification,
+    classificationSource: fallbackUsed ? "fallback" : "mistral"
+  };
+}

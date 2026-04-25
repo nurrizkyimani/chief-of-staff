@@ -29,7 +29,7 @@ export type ReceiptPipelineResult = {
 export async function buildReceiptPayload(input: ReceiptPipelineInput): Promise<ReceiptPayload> {
   const candidate = await extractReceiptFromImage(input.imageBase64, input.mimeType);
   const receiptDate = normalizeReceiptDate(candidate.receipt_date);
-  const classification = classifyReceiptFromCandidate(candidate);
+  const classificationDecision = classifyReceiptFromCandidate(candidate);
 
   return validateReceiptV11({
     schema_version: "receipt.v1.1",
@@ -45,7 +45,7 @@ export async function buildReceiptPayload(input: ReceiptPipelineInput): Promise<
     total_amount: candidate.total_amount,
     tax_amount: candidate.tax_amount,
     tax_label_raw: candidate.tax_label_raw,
-    classification,
+    classification: classificationDecision.finalClassification,
     currency: "IDR",
     month_key: buildMonthKey(receiptDate),
     confidence: candidate.confidence,
@@ -55,7 +55,13 @@ export async function buildReceiptPayload(input: ReceiptPipelineInput): Promise<
       !candidate.receipt_date ||
       !candidate.total_amount,
     raw_json: {
-      ocr_excerpt: candidate.raw_text
+      ocr_excerpt: candidate.raw_text,
+      model_classification: classificationDecision.modelClassification,
+      final_classification: classificationDecision.finalClassification,
+      classification_source: classificationDecision.classificationSource,
+      ...(classificationDecision.matchedOverride
+        ? { matched_override: classificationDecision.matchedOverride }
+        : {})
     }
   });
 }

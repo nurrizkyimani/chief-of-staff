@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "validate-schema": "tsx src/scripts/validate_receipt_schema.ts",
+    "check-classification": "tsx src/scripts/check_receipt_classification.ts",
     "backfill": "tsx src/scripts/backfill_receipts.ts",
     "parity-compare": "tsx src/scripts/compare_parity_results.ts"
   },

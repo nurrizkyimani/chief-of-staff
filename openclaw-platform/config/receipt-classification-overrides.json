@@ -1,0 +1,40 @@
+{
+  "subscription": [
+    "spotify",
+    "netflix",
+    "youtube premium",
+    "chatgpt",
+    "icloud",
+    "canva",
+    "notion",
+    "midjourney"
+  ],
+  "mobility": [
+    "gojek",
+    "grab ride",
+    "bluebird",
+    "transjakarta",
+    "mrt",
+    "krl",
+    "toll",
+    "parkir",
+    "pertamina",
+    "shell"
+  ],
+  "groceries": [
+    "alfamart",
+    "indomaret",
+    "minimarket",
+    "supermarket",
+    "hypermart"
+  ],
+  "food": [
+    "dbesto",
+    "fried chicken",
+    "gofood",
+    "grabfood",
+    "shopeefood",
+    "kopi kenangan",
+    "starbucks"
+  ]
+}
