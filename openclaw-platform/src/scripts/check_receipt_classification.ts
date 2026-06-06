@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { applyPersonalClassificationOverride } from "../assistants/receipt-assistant/classifiers/classify_receipt.js";
+import { applyPersonalClassificationOverride } from "../domains/receipts/receipt-classification.js";
 
 const defaultDecision = applyPersonalClassificationOverride("food", "Unknown Merchant", "General purchase");
 assert.equal(defaultDecision.finalClassification, "food");

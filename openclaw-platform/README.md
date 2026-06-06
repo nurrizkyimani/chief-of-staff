@@ -75,7 +75,7 @@ Important updates before use:
 - set absolute path for `hooks.internal.load.extraDirs`
 
 Core fields included in the config:
-- internal hook discovery + `receipt-intake` enablement
+- internal hook discovery + `task-router` enablement
 - Telegram `dmPolicy=allowlist`
 - sandbox defaults (`mode=all`, `scope=session`, `workspaceAccess=rw`)
 - sandbox Docker network default `none` (default deny egress)

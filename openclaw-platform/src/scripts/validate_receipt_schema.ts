@@ -1,4 +1,4 @@
-import { ReceiptPayloadSchema } from "../assistants/receipt-assistant/schemas/receipt.v1.1.schema.js";
+import { ReceiptPayloadSchema } from "../domains/receipts/receipt.schema.js";
 
 const sample = {
   schema_version: "receipt.v1.1",
