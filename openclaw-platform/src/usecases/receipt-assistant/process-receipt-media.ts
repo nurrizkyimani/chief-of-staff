@@ -9,7 +9,7 @@ import { rasterizePdfBufferToJpegPages } from "../../media/pdf_rasterizer.js";
 import {
   parseAndQueueReceiptConfirmation,
   type ReceiptConfirmationRequest
-} from "../../usecases/receipt-assistant/queue-receipt-confirmation.js";
+} from "./queue-receipt-confirmation.js";
 import type { ProcessReceiptAssistantInput } from "./process-receipt-assistant.types.js";
 
 export type ReceiptMediaProcessorLogger = {

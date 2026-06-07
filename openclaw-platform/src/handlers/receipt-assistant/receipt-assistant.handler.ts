@@ -1,7 +1,7 @@
 import {
   processReceiptAssistant,
   type ProcessReceiptAssistantLogger
-} from "../../application/receipt-assistant/process-receipt-assistant.js";
+} from "../../usecases/receipt-assistant/process-receipt-assistant.js";
 import { handleReceiptConfirmation } from "../../usecases/receipt-assistant/handle-receipt-confirmation.js";
 import {
   CALLBACK_CONFIRM_PREFIX,

@@ -2,8 +2,8 @@ import { formatReceiptFailureMessage } from "../../domains/receipts/receipt-form
 import { ReceiptError, getErrorStatus } from "../../errors/receipt_errors.js";
 import { deriveMessageId, type MediaCandidate } from "../../integrations/openclaw/media-source.js";
 import { logReceiptOutcome } from "../../observability/receipt_logger.js";
-import { processReceiptMediaCandidate } from "./receipt-media.processor.js";
-import { selectReceiptMediaCandidates } from "./receipt-media-selection.js";
+import { processReceiptMediaCandidate } from "./process-receipt-media.js";
+import { selectReceiptMediaCandidates } from "./select-receipt-media.js";
 import type { ProcessReceiptAssistantInput, ProcessReceiptAssistantResult } from "./process-receipt-assistant.types.js";
 
 export type ProcessReceiptAssistantLogger = {

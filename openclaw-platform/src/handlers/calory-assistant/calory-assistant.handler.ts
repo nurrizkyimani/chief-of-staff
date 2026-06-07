@@ -1,4 +1,4 @@
-import { processCaloryAssistant } from "../../application/calory-assistant/process-calory-assistant.js";
+import { processCaloryAssistant } from "../../usecases/calory-assistant/process-calory-assistant.js";
 import type { TaskHandler } from "../../task-router/task-handler.js";
 import { handledTaskResult } from "../../task-router/task-handler.js";
 

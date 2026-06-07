@@ -6,7 +6,7 @@ export async function processCaloryAssistant(
   return {
     handled: true,
     messages: [
-      `Calory assistant is not implemented yet. The /gym executor received ${input.mediaCount} media item(s) from ${input.sourcePlatform}.`
+      `Calory assistant is not implemented yet. The /gym handler received ${input.mediaCount} media item(s) from ${input.sourcePlatform}.`
     ]
   };
 }
