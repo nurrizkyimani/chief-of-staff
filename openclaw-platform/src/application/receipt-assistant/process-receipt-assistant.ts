@@ -4,9 +4,9 @@ import { deriveMessageId, type MediaCandidate } from "../../integrations/opencla
 import { logReceiptOutcome } from "../../observability/receipt_logger.js";
 import { processReceiptMediaCandidate } from "./receipt-media.processor.js";
 import { selectReceiptMediaCandidates } from "./receipt-media-selection.js";
-import type { ReceiptAssistantExecutorInput, ReceiptAssistantExecutorResult } from "./receipt-assistant.types.js";
+import type { ProcessReceiptAssistantInput, ProcessReceiptAssistantResult } from "./process-receipt-assistant.types.js";
 
-export type ReceiptAssistantExecutorLogger = {
+export type ProcessReceiptAssistantLogger = {
   receiptMediaCandidates(input: {
     intent: string;
     intentSource: string;
@@ -26,12 +26,12 @@ export type ReceiptAssistantExecutorLogger = {
   }): void;
 };
 
-export async function executeReceiptAssistant(
-  input: ReceiptAssistantExecutorInput,
-  logger?: ReceiptAssistantExecutorLogger
-): Promise<ReceiptAssistantExecutorResult> {
+export async function processReceiptAssistant(
+  input: ProcessReceiptAssistantInput,
+  logger?: ProcessReceiptAssistantLogger
+): Promise<ProcessReceiptAssistantResult> {
   const messages: string[] = [];
-  const confirmations: ReceiptAssistantExecutorResult["confirmations"] = [];
+  const confirmations: ProcessReceiptAssistantResult["confirmations"] = [];
   const mediaSelection = selectReceiptMediaCandidates(input.mediaCandidates);
 
   logger?.receiptMediaCandidates({

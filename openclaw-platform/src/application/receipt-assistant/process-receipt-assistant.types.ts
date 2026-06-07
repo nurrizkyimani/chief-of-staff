@@ -5,7 +5,7 @@ export type ReceiptAssistantIntent = "receipt" | "income";
 
 export type ReceiptAssistantIntentSource = "receipt_command" | "income_command";
 
-export type ReceiptAssistantExecutorInput = {
+export type ProcessReceiptAssistantInput = {
   sourcePlatform: string;
   chatId: string;
   baseMessageId: string;
@@ -16,7 +16,7 @@ export type ReceiptAssistantExecutorInput = {
   intentSource: ReceiptAssistantIntentSource;
 };
 
-export type ReceiptAssistantExecutorResult = {
+export type ProcessReceiptAssistantResult = {
   handled: true;
   messages: string[];
   confirmations: ReceiptConfirmationRequest[];

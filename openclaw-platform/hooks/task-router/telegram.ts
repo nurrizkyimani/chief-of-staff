@@ -1,19 +1,21 @@
 import { env } from "../../dist/config/env.js";
-import {
-  CALLBACK_CONFIRM_PREFIX,
-  CALLBACK_REJECT_PREFIX
-} from "../../dist/usecases/receipt-assistant/receipt-confirmation-store.js";
 import { logStep, preview } from "./logging.ts";
 import { pushMessage } from "./openclaw-event.ts";
 
-export async function sendTelegramInlineConfirmation(chatId: string, text: string, token: string): Promise<boolean> {
+export async function sendTelegramInlineConfirmation(input: {
+  chatId: string;
+  text: string;
+  token: string;
+  confirmCallbackData: string;
+  rejectCallbackData: string;
+}): Promise<boolean> {
   if (!env.TELEGRAM_BOT_TOKEN) return false;
 
   try {
     logStep("telegram.inline.request", {
-      chatId,
-      token,
-      textPreview: preview(text)
+      chatId: input.chatId,
+      token: input.token,
+      textPreview: preview(input.text)
     });
 
     const response = await fetch(`${env.TELEGRAM_API_BASE}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -22,18 +24,18 @@ export async function sendTelegramInlineConfirmation(chatId: string, text: strin
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        chat_id: chatId,
-        text,
+        chat_id: input.chatId,
+        text: input.text,
         reply_markup: {
           inline_keyboard: [
             [
               {
                 text: "Yes",
-                callback_data: `${CALLBACK_CONFIRM_PREFIX}${token}`
+                callback_data: input.confirmCallbackData
               },
               {
                 text: "No",
-                callback_data: `${CALLBACK_REJECT_PREFIX}${token}`
+                callback_data: input.rejectCallbackData
               }
             ]
           ]
@@ -43,7 +45,7 @@ export async function sendTelegramInlineConfirmation(chatId: string, text: strin
 
     const responseBody = await response.text();
     logStep("telegram.inline.response", {
-      chatId,
+      chatId: input.chatId,
       status: response.status,
       ok: response.ok,
       bodyPreview: preview(responseBody)
@@ -52,7 +54,7 @@ export async function sendTelegramInlineConfirmation(chatId: string, text: strin
     return response.ok;
   } catch (error) {
     logStep("telegram.inline.error", {
-      chatId,
+      chatId: input.chatId,
       error: (error as Error)?.message ?? "Unknown sendMessage error"
     });
     return false;

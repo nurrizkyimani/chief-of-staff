@@ -10,7 +10,7 @@ import {
   parseAndQueueReceiptConfirmation,
   type ReceiptConfirmationRequest
 } from "../../usecases/receipt-assistant/queue-receipt-confirmation.js";
-import type { ReceiptAssistantExecutorInput } from "./receipt-assistant.types.js";
+import type { ProcessReceiptAssistantInput } from "./process-receipt-assistant.types.js";
 
 export type ReceiptMediaProcessorLogger = {
   receiptMediaFetched(input: {
@@ -22,7 +22,7 @@ export type ReceiptMediaProcessorLogger = {
 };
 
 export type ReceiptMediaProcessParams = {
-  input: ReceiptAssistantExecutorInput;
+  input: ProcessReceiptAssistantInput;
   media: MediaCandidate;
   mediaIndex: number;
   totalMedia: number;

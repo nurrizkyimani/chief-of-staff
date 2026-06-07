@@ -1,4 +1,3 @@
-import { detectTaskTrigger } from "../../dist/controllers/openclaw/task-trigger.detector.js";
 import {
   pickChatId,
   pickMessageId,
@@ -21,7 +20,6 @@ export function buildTaskRouterContext(event: any): TaskRouterContext {
     event,
     text,
     mediaCandidates,
-    trigger: detectTaskTrigger(text, mediaCandidates.length > 0),
     telegramChatId: pickTelegramSendChatId(event),
     chatId: pickChatId(event),
     baseMessageId: pickMessageId(event),

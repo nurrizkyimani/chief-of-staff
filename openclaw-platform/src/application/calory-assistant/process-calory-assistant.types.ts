@@ -1,4 +1,4 @@
-export type CaloryAssistantExecutorInput = {
+export type ProcessCaloryAssistantInput = {
   sourcePlatform: string;
   chatId: string;
   baseMessageId: string;
@@ -7,7 +7,7 @@ export type CaloryAssistantExecutorInput = {
   mediaCount: number;
 };
 
-export type CaloryAssistantExecutorResult = {
+export type ProcessCaloryAssistantResult = {
   handled: true;
   messages: string[];
 };
