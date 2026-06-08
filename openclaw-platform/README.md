@@ -1,7 +1,7 @@
 # openclaw-platform (M1 executable, OpenClaw-first)
 
 Local implementation for RFC-001:
-- Telegram receipt intake (`/receipt` + image-first flow)
+- Telegram receipt intake (media-first flow; `/receipt` remains optional)
 - Mistral extraction (`mistral-small-latest`)
 - `receipt.v1.1` validation
 - Google Sheets append to `receipts_raw` + `monthly_breakdown` formula bootstrap
@@ -75,7 +75,7 @@ Important updates before use:
 - set absolute path for `hooks.internal.load.extraDirs`
 
 Core fields included in the config:
-- internal hook discovery + `receipt-intake` enablement
+- internal hook discovery + `task-router` enablement
 - Telegram `dmPolicy=allowlist`
 - sandbox defaults (`mode=all`, `scope=session`, `workspaceAccess=rw`)
 - sandbox Docker network default `none` (default deny egress)
@@ -115,7 +115,11 @@ make logs
 
 ## 8) Test from Telegram
 
-Send `/receipt` plus a photo/image to your bot.
+Send receipt media directly to your bot. `/receipt` still works but is optional.
+
+Income mode:
+- send `/income` together with the media to classify the row as `income`
+- default media without `/income` is treated as a normal receipt
 
 Expected result:
 - Telegram first sends parsed fields with `Confirm` / `Cancel` buttons

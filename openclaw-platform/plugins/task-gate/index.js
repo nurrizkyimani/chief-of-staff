@@ -2,9 +2,11 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const RECEIPT_COMMAND_RE = /^\/receipt(?:@\w+)?(?:\s|$)/i;
 const INCOME_COMMAND_RE = /^\/income(?:@\w+)?(?:\s|$)/i;
+const GYM_COMMAND_RE = /^\/gym(?:@\w+)?(?:\s|$)/i;
 const MODELHEALTH_COMMAND_RE = /^\/modelhealth(?:\s|$)/i;
 const CONFIRMATION_RE =
   /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+)$/i;
+const NO_REPLY_RE = /^NO_REPLY$/i;
 
 function textFrom(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -30,7 +32,7 @@ function hasMediaValue(value) {
   ].some(hasMediaValue);
 }
 
-function hasReceiptMedia(event) {
+function hasTaskMedia(event) {
   return [
     event?.media,
     event?.attachment,
@@ -54,28 +56,29 @@ function shouldSilence(event) {
     textFrom(event?.content)
   ].find(Boolean);
 
-  if (!text) return hasReceiptMedia(event) ? "receipt_media" : null;
-  if (RECEIPT_COMMAND_RE.test(text)) return "receipt_command";
-  if (INCOME_COMMAND_RE.test(text)) return "income_command";
+  if (!text) return null;
+  if (NO_REPLY_RE.test(text)) return "task_no_reply_marker";
+  if (RECEIPT_COMMAND_RE.test(text)) return hasTaskMedia(event) ? "receipt_command" : "receipt_missing_media";
+  if (INCOME_COMMAND_RE.test(text)) return hasTaskMedia(event) ? "income_command" : "income_missing_media";
+  if (GYM_COMMAND_RE.test(text)) return hasTaskMedia(event) ? "gym_command" : "gym_missing_media";
   if (MODELHEALTH_COMMAND_RE.test(text)) return "modelhealth_command";
   if (CONFIRMATION_RE.test(text)) return "receipt_confirmation";
-  if (hasReceiptMedia(event)) return "receipt_media";
   return null;
 }
 
 export default definePluginEntry({
-  id: "receipt-gate",
-  name: "Receipt Gate",
-  description: "Suppresses default model replies for deterministic receipt intake commands.",
+  id: "task-gate",
+  name: "Task Gate",
+  description: "Suppresses default model replies for deterministic task commands.",
   register(api) {
     api.on("before_agent_reply", (event, ctx) => {
-      if (ctx.channelId !== "telegram" && ctx.messageProvider !== "telegram") return;
-
       const reason = shouldSilence(event);
       if (!reason) return;
 
       api.logger.info("silencing default agent reply", {
         reason,
+        channelId: ctx.channelId,
+        messageProvider: ctx.messageProvider,
         sessionKey: ctx.sessionKey
       });
 

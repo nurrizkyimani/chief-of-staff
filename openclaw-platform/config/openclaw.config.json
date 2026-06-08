@@ -49,7 +49,7 @@
         ]
       },
       "entries": {
-        "receipt-intake": {
+        "task-router": {
           "enabled": true
         }
       }
@@ -65,11 +65,11 @@
   "plugins": {
     "load": {
       "paths": [
-        "/Users/nurrizky/dev/chief-of-staff/openclaw-platform/plugins/receipt-gate"
+        "/Users/nurrizky/dev/chief-of-staff/openclaw-platform/plugins/task-gate"
       ]
     },
     "entries": {
-      "receipt-gate": {
+      "task-gate": {
         "enabled": true
       },
       "openai": {

@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { applyPersonalClassificationOverride } from "../assistants/receipt-assistant/classifiers/classify_receipt.js";
+import { applyPersonalClassificationOverride } from "../domains/receipts/receipt-classification.js";
 
 const defaultDecision = applyPersonalClassificationOverride("food", "Unknown Merchant", "General purchase");
 assert.equal(defaultDecision.finalClassification, "food");
@@ -15,6 +15,10 @@ assert.equal(overrideDecision.modelClassification, "nonfood");
 const fallbackDecision = applyPersonalClassificationOverride("mobility", "Unknown Merchant", "No matching override");
 assert.equal(fallbackDecision.finalClassification, "mobility");
 assert.equal(fallbackDecision.classificationSource, "mistral");
+
+const incomeDecision = applyPersonalClassificationOverride("income", "BCA Transfer", "Transfer received");
+assert.equal(incomeDecision.finalClassification, "income");
+assert.equal(incomeDecision.classificationSource, "mistral");
 
 const invalidDecision = applyPersonalClassificationOverride("not-a-category", "Unknown Merchant", "No matching override");
 assert.equal(invalidDecision.finalClassification, "nonfood");

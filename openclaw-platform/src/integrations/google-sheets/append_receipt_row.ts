@@ -1,5 +1,5 @@
 import { env } from "../../config/env.js";
-import type { ReceiptPayload } from "../../assistants/receipt-assistant/schemas/receipt.v1.1.schema.js";
+import type { ReceiptPayload } from "../../domains/receipts/receipt.schema.js";
 import { createSheetsClient } from "./sheets_client.js";
 import { ReceiptError, getErrorStatus } from "../../errors/receipt_errors.js";
 
