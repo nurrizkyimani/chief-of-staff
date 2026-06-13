@@ -192,7 +192,7 @@ M1 is complete when:
 We will keep platform and docs in the same repository (`chief-of-staff`) as requested.
 
 Repository structure decision:
-- `obsidian-vault/` for planning/docs/RFCs
+- `openclaw-obsidian-vault/` for planning/docs/RFCs
 - `openclaw-platform/` for OpenClaw runtime/config/integration code
 
 Install strategy decision:
@@ -261,7 +261,7 @@ The following is the recommended monorepo layout inside `chief-of-staff`.
 
 ```text
 chief-of-staff/
-|-- obsidian-vault/
+|-- openclaw-obsidian-vault/
 |   |-- JOURNAL-DRAFT.md
 |   `-- rfc-vault/
 |       `-- RFC-001-openclaw-telegram-receipt-assistant.md

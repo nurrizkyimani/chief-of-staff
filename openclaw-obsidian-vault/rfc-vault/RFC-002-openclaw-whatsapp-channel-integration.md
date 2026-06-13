@@ -372,7 +372,7 @@ No OpenClaw core modifications for M2.
 - Multi-channel uniqueness uses `receipt_id` with platform prefix.
 
 ## 23) References
-- RFC-001: `obsidian-vault/rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md`
+- RFC-001: `openclaw-obsidian-vault/rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md`
 - OpenClaw WhatsApp docs: https://docs.openclaw.ai/channels/whatsapp
 - OpenClaw Group Messages: https://docs.openclaw.ai/concepts/group-messages
 - OpenClaw Hooks: https://docs.openclaw.ai/automation/hooks
