@@ -17,7 +17,7 @@ This repository is used to:
 ## Repository Structure
 ```text
 chief-of-staff/
-|-- obsidian-vault/
+|-- openclaw-obsidian-vault/
 |   |-- JOURNAL-DRAFT.md
 |   `-- rfc-vault/
 |       `-- RFC-001-openclaw-telegram-receipt-assistant.md
@@ -32,7 +32,7 @@ chief-of-staff/
 ```
 
 ## Key Document
-- `obsidian-vault/rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md`
+- `openclaw-obsidian-vault/rfc-vault/RFC-001-openclaw-telegram-receipt-assistant.md`
   - includes scope, architecture, schema, project visualization, function responsibilities, and Google Sheets mapping
 
 ## Planned Stack (M1)
