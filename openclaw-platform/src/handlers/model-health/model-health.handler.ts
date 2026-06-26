@@ -1,6 +1,6 @@
 import {
-  checkMistralHealth,
-  formatMistralHealthMessage,
+  checkReceiptModelHealth,
+  formatReceiptModelHealthMessage,
   type ModelHealthLogger
 } from "../../usecases/model-health/check-mistral-health.js";
 import type { TaskHandler } from "../../task-router/task-handler.js";
@@ -17,10 +17,10 @@ export const modelHealthHandler: TaskHandler = {
       return handledTaskResult({ suppressReason: "model_health_unmatched" });
     }
 
-    const health = await checkMistralHealth(createModelHealthLogger(logger));
+    const health = await checkReceiptModelHealth(createModelHealthLogger(logger));
     return handledTaskResult({
       suppressReason: trigger.source,
-      messages: [formatMistralHealthMessage(health)]
+      messages: [formatReceiptModelHealthMessage(health)]
     });
   }
 };

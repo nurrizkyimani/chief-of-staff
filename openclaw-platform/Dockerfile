@@ -10,6 +10,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+RUN npm run build
 
 ENV NODE_ENV=production
 ENV OPENCLAW_HOME=/app/.openclaw-home

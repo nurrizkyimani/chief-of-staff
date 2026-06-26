@@ -19,7 +19,7 @@ const MODEL_MAX_ATTEMPTS = 3;
 const MODEL_BASE_BACKOFF_MS = 750;
 const MISTRAL_CHAT_COMPLETIONS_URL = "https://api.mistral.ai/v1/chat/completions";
 
-const RECEIPT_SCHEMA = {
+export const RECEIPT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
@@ -47,7 +47,7 @@ const RECEIPT_SCHEMA = {
   ]
 } as const;
 
-const parserInstructions = `
+export const parserInstructions = `
 You are a receipt parser.
 Extract only from visible printed values.
 Output strict JSON with keys:
@@ -119,7 +119,16 @@ function contentToString(content: string | MistralMessageContentPart[] | undefin
     .trim();
 }
 
-async function callMistralParse(imageBase64: string, mimeType: string, intent: ReceiptParseIntent): Promise<string> {
+async function callMistralParse(
+  imageBase64: string,
+  mimeType: string,
+  intent: ReceiptParseIntent,
+  model: string
+): Promise<string> {
+  if (!env.MISTRAL_API_KEY) {
+    throw new ReceiptError("MODEL_PERMANENT", "MISTRAL_API_KEY is required for the Mistral receipt parser.");
+  }
+
   const response = await fetch(MISTRAL_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
@@ -127,7 +136,7 @@ async function callMistralParse(imageBase64: string, mimeType: string, intent: R
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: env.RECEIPT_MODEL,
+      model,
       temperature: 0,
       response_format: {
         type: "json_schema",
@@ -178,12 +187,17 @@ async function callMistralParse(imageBase64: string, mimeType: string, intent: R
   return outputText;
 }
 
-async function callModelWithRetries(imageBase64: string, mimeType: string, intent: ReceiptParseIntent): Promise<string> {
+async function callModelWithRetries(
+  imageBase64: string,
+  mimeType: string,
+  intent: ReceiptParseIntent,
+  model: string
+): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MODEL_MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await callMistralParse(imageBase64, mimeType, intent);
+      return await callMistralParse(imageBase64, mimeType, intent, model);
     } catch (error) {
       lastError = error;
       const retryable = isRetryableModelError(error);
@@ -213,9 +227,10 @@ async function callModelWithRetries(imageBase64: string, mimeType: string, inten
 export async function extractReceiptFromImage(
   imageBase64: string,
   mimeType: string,
-  intent: ReceiptParseIntent = "receipt"
+  intent: ReceiptParseIntent = "receipt",
+  model = "mistral-small-latest"
 ): Promise<ReceiptParseCandidate> {
-  const outputText = await callModelWithRetries(imageBase64, mimeType, intent);
+  const outputText = await callModelWithRetries(imageBase64, mimeType, intent, model);
 
   try {
     return JSON.parse(outputText) as ReceiptParseCandidate;

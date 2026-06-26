@@ -1,10 +1,10 @@
 {
-  "defaultProvider": "mistral",
+  "defaultProvider": "google",
   "models": {
-    "receipt_intake": "mistral/mistral-small-latest"
+    "receipt_intake": "gemini-3.1-flash-lite"
   },
   "requiredEnv": [
-    "MISTRAL_API_KEY",
+    "GEMINI_API_KEY",
     "TELEGRAM_BOT_TOKEN",
     "GOOGLE_APPLICATION_CREDENTIALS",
     "RECEIPT_SPREADSHEET_ID"

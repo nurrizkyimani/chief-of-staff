@@ -1,10 +1,12 @@
 import { env } from "../../config/env.js";
+import { getReceiptModelConfig } from "../../config/providers.js";
 
 const WHITESPACE_SEQUENCE_PATTERN = /\s+/g;
 
-export type MistralHealthResult =
+export type ReceiptModelHealthResult =
   | {
       ok: true;
+      provider: string;
       model: string;
       servedModel: string;
       latencyMs: number;
@@ -12,6 +14,7 @@ export type MistralHealthResult =
     }
   | {
       ok: false;
+      provider: string;
       model: string;
       latencyMs: number;
       status?: number;
@@ -31,6 +34,14 @@ export type ModelHealthLogger = {
     latencyMs: number;
   }): void;
   requestError(input: { error: string }): void;
+};
+
+type TextHealthRequest = {
+  provider: "mistral" | "google";
+  model: string;
+  endpoint: string;
+  headers: Record<string, string>;
+  body: unknown;
 };
 
 function safeErrorDetails(details: string): string {
@@ -58,15 +69,49 @@ function preview(value: string, max = 360): string {
   return `${value.slice(0, max)}...`;
 }
 
-export async function checkMistralHealth(logger?: ModelHealthLogger): Promise<MistralHealthResult> {
-  const startedAt = Date.now();
-  const model = env.RECEIPT_MODEL;
-  const endpoint = `${env.MISTRAL_API_BASE}/v1/chat/completions`;
+function buildHealthRequest(provider: "mistral" | "google", model: string): TextHealthRequest {
+  if (provider === "google") {
+    if (!env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is required for Google model health checks.");
+    }
 
-  logger?.request({ endpoint, model });
+    return {
+      provider,
+      model,
+      endpoint: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        model
+      )}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: "Reply with exactly: OK" }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 16
+        }
+      }
+    };
+  }
 
-  try {
-    const requestBody = {
+  if (!env.MISTRAL_API_KEY) {
+    throw new Error("MISTRAL_API_KEY is required for Mistral model health checks.");
+  }
+
+  return {
+    provider,
+    model,
+    endpoint: `${env.MISTRAL_API_BASE}/v1/chat/completions`,
+    headers: {
+      Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: {
       model,
       temperature: 0,
       max_tokens: 16,
@@ -76,15 +121,52 @@ export async function checkMistralHealth(logger?: ModelHealthLogger): Promise<Mi
           content: "Reply with exactly: OK"
         }
       ]
-    };
+    }
+  };
+}
 
+function extractHealthContent(provider: "mistral" | "google", payload: unknown): { servedModel: string; sample: string } {
+  if (provider === "google") {
+    const geminiPayload = payload as {
+      modelVersion?: string;
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const sample =
+      geminiPayload.candidates?.[0]?.content?.parts
+        ?.map((part) => (typeof part.text === "string" ? part.text : ""))
+        .join("")
+        .trim()
+        .slice(0, 120) || "(empty)";
+
+    return {
+      servedModel: String(geminiPayload.modelVersion ?? "unknown"),
+      sample
+    };
+  }
+
+  const mistralPayload = payload as {
+    model?: string;
+    choices?: Array<{ message?: { content?: unknown } }>;
+  };
+  const rawContent = mistralPayload.choices?.[0]?.message?.content;
+  return {
+    servedModel: String(mistralPayload.model ?? "unknown"),
+    sample: extractMistralContent(rawContent).slice(0, 120) || "(empty)"
+  };
+}
+
+export async function checkReceiptModelHealth(logger?: ModelHealthLogger): Promise<ReceiptModelHealthResult> {
+  const startedAt = Date.now();
+  const modelConfig = getReceiptModelConfig();
+  const { provider, model, endpoint, headers, body } = buildHealthRequest(modelConfig.provider, modelConfig.model);
+
+  logger?.request({ endpoint, model });
+
+  try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
+      headers,
+      body: JSON.stringify(body)
     });
 
     const latencyMs = Date.now() - startedAt;
@@ -100,6 +182,7 @@ export async function checkMistralHealth(logger?: ModelHealthLogger): Promise<Mi
     if (!response.ok) {
       return {
         ok: false,
+        provider,
         model,
         latencyMs,
         status: response.status,
@@ -108,37 +191,34 @@ export async function checkMistralHealth(logger?: ModelHealthLogger): Promise<Mi
       };
     }
 
-    let payload: {
-      model?: string;
-      choices?: Array<{ message?: { content?: unknown } }>;
-    } = {};
+    let payload: unknown = {};
 
     try {
-      payload = JSON.parse(bodyText) as typeof payload;
+      payload = JSON.parse(bodyText);
     } catch {
       logger?.invalidJson({ bodyPreview: preview(bodyText) });
       return {
         ok: false,
+        provider,
         model,
         latencyMs,
-        error: "Invalid JSON response from Mistral API."
+        error: `Invalid JSON response from ${provider} API.`
       };
     }
 
-    const rawContent = payload.choices?.[0]?.message?.content;
-    const sample = extractMistralContent(rawContent).slice(0, 120) || "(empty)";
-    const servedModel = String(payload.model ?? model);
+    const { sample, servedModel } = extractHealthContent(provider, payload);
 
     logger?.parseOk({
       configuredModel: model,
       servedModel,
-      rawContentType: Array.isArray(rawContent) ? "array" : typeof rawContent,
+      rawContentType: typeof payload,
       samplePreview: preview(sample),
       latencyMs
     });
 
     return {
       ok: true,
+      provider,
       model,
       servedModel,
       latencyMs,
@@ -150,6 +230,7 @@ export async function checkMistralHealth(logger?: ModelHealthLogger): Promise<Mi
     });
     return {
       ok: false,
+      provider,
       model,
       latencyMs: Date.now() - startedAt,
       error: (error as Error)?.message ?? "Unknown network error"
@@ -157,10 +238,10 @@ export async function checkMistralHealth(logger?: ModelHealthLogger): Promise<Mi
   }
 }
 
-export function formatMistralHealthMessage(result: MistralHealthResult): string {
+export function formatReceiptModelHealthMessage(result: ReceiptModelHealthResult): string {
   if (result.ok === true) {
     return `Model connectivity: OK
-Provider: mistral
+Provider: ${result.provider}
 Configured model: ${result.model}
 Served model: ${result.servedModel}
 Latency: ${result.latencyMs}ms
@@ -170,7 +251,7 @@ Sample: ${result.sample}`;
   const statusLine = result.status ? `Status: ${result.status}\n` : "";
   const detailsLine = result.details ? `Details: ${result.details}\n` : "";
   return `Model connectivity: FAILED
-Provider: mistral
+Provider: ${result.provider}
 Configured model: ${result.model}
 ${statusLine}${detailsLine}Error: ${result.error}
 Latency: ${result.latencyMs}ms`;

@@ -7,6 +7,12 @@ import { routeTask } from "../../dist/task-router/task-router.js";
 import type { TaskConfirmation, TaskRouterLogger } from "../../dist/task-router/task.types.js";
 import { logStep, preview } from "./logging.ts";
 import { suppressDownstreamProcessing } from "./openclaw-event.ts";
+import {
+  resolveChannelPolicy,
+  shouldLetDefaultAgentHandle,
+  shouldRunTaskModule,
+  shouldSuppressDefaultAgent
+} from "./routing-policy.ts";
 import { sendControlledText, sendTelegramInlineConfirmation } from "./telegram.ts";
 
 const handler = async (event: any) => {
@@ -14,6 +20,35 @@ const handler = async (event: any) => {
 
   const context = buildTaskRouterContext(event);
   logTaskRouterStart(context);
+  const policy = resolveChannelPolicy(context);
+  logStep("routing.policy", {
+    key: policy.key,
+    name: policy.name,
+    modules: policy.modules,
+    media: policy.media,
+    unknownText: policy.unknownText
+  });
+
+  if (shouldSuppressDefaultAgent(context, policy)) {
+    suppressDownstreamProcessing(context.event, "routing_policy");
+  }
+
+  if (shouldLetDefaultAgentHandle(context, policy)) {
+    logStep("routing.default_agent", {
+      key: policy.key,
+      reason: "policy_allows_general_chat"
+    });
+    return;
+  }
+
+  if (!shouldRunTaskModule(context, policy)) {
+    logStep("routing.no_task_module", {
+      key: policy.key,
+      modules: policy.modules
+    });
+    return;
+  }
+
   const result = await routeTask(
     {
       text: context.text,
