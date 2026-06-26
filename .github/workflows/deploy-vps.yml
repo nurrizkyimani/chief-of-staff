@@ -1,0 +1,183 @@
+name: Deploy OpenClaw Platform to VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "openclaw-platform/**"
+      - ".github/workflows/deploy-vps.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-openclaw-platform-vps
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: openclaw-platform
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: openclaw-platform
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: openclaw-platform/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run build
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER || 'root' }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/openclaw-platform' }}
+      SSHPASS: ${{ secrets.VPS_PASSWORD }}
+      OPENCLAW_ENV_FILE: ${{ secrets.OPENCLAW_ENV_FILE }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VPS_HOST}" ]; then
+            echo "Missing GitHub secret: VPS_HOST" >&2
+            exit 1
+          fi
+
+          if [ -z "${SSHPASS}" ]; then
+            echo "Missing GitHub secret: VPS_PASSWORD" >&2
+            exit 1
+          fi
+
+      - name: Install deployment tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rsync sshpass openssh-client
+
+      - name: Trust VPS SSH host key
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p "${VPS_PORT}" "${VPS_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Create deploy directory
+        run: |
+          set -euo pipefail
+          sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+            "mkdir -p '${VPS_DEPLOY_PATH}' '${VPS_DEPLOY_PATH}/.secrets'"
+
+      - name: Sync application files
+        run: |
+          set -euo pipefail
+          sshpass -e rsync -az --delete \
+            --exclude ".env" \
+            --exclude ".openclaw-home/" \
+            --exclude ".secrets/" \
+            --exclude "dist/" \
+            --exclude "node_modules/" \
+            -e "ssh -p ${VPS_PORT}" \
+            "${APP_DIR}/" "${VPS_USER}@${VPS_HOST}:${VPS_DEPLOY_PATH}/"
+
+      - name: Write runtime secrets
+        run: |
+          set -euo pipefail
+
+          if [ -n "${OPENCLAW_ENV_FILE}" ]; then
+            printf '%s' "${OPENCLAW_ENV_FILE}" | sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+              "cat > '${VPS_DEPLOY_PATH}/.env'"
+          fi
+
+          if [ -n "${GOOGLE_SERVICE_ACCOUNT_JSON}" ]; then
+            printf '%s' "${GOOGLE_SERVICE_ACCOUNT_JSON}" | sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+              "cat > '${VPS_DEPLOY_PATH}/.secrets/service-account.json'"
+          fi
+
+      - name: Rebuild and restart gateway
+        run: |
+          set -euo pipefail
+
+          sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+            "VPS_DEPLOY_PATH='${VPS_DEPLOY_PATH}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          cd "${VPS_DEPLOY_PATH}"
+
+          run_as_root() {
+            if [ "$(id -u)" -eq 0 ]; then
+              "$@"
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo "$@"
+            else
+              echo "Root or sudo is required to install Docker dependencies." >&2
+              exit 1
+            fi
+          }
+
+          if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+            if ! command -v apt-get >/dev/null 2>&1; then
+              echo "Docker Compose is missing and this host does not use apt-get." >&2
+              exit 1
+            fi
+
+            run_as_root apt-get update
+            run_as_root apt-get install -y --no-install-recommends make docker.io docker-compose-plugin \
+              || run_as_root apt-get install -y --no-install-recommends make docker.io docker-compose-v2
+            run_as_root systemctl enable --now docker || true
+          fi
+
+          compose() {
+            if docker compose version >/dev/null 2>&1; then
+              docker compose "$@"
+            elif command -v sudo >/dev/null 2>&1 && sudo docker compose version >/dev/null 2>&1; then
+              sudo docker compose "$@"
+            else
+              echo "Docker Compose is not available for this user." >&2
+              exit 1
+            fi
+          }
+
+          if [ ! -f .env ]; then
+            echo "Missing ${VPS_DEPLOY_PATH}/.env. Add OPENCLAW_ENV_FILE as a GitHub secret or create .env on the VPS." >&2
+            exit 1
+          fi
+
+          mkdir -p .openclaw-home .secrets
+
+          if [ -f .secrets/service-account.json ]; then
+            export GOOGLE_APPLICATION_CREDENTIALS=./.secrets/service-account.json
+          fi
+
+          compose build gateway
+          compose up -d gateway
+          compose ps
+          REMOTE

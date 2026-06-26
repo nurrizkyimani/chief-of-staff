@@ -7,6 +7,7 @@ const MODELHEALTH_COMMAND_RE = /^\/modelhealth(?:\s|$)/i;
 const CONFIRMATION_RE =
   /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+)$/i;
 const NO_REPLY_RE = /^NO_REPLY$/i;
+const MEDIA_PLACEHOLDER_RE = /^<media:[^>]+>(?:\s*\([^)]*\))?$/i;
 
 function textFrom(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -49,20 +50,33 @@ function hasTaskMedia(event) {
 }
 
 function shouldSilence(event) {
-  const text = [
+  const textCandidates = [
     textFrom(event?.cleanedBody),
     textFrom(event?.body),
     textFrom(event?.bodyForAgent),
-    textFrom(event?.content)
-  ].find(Boolean);
+    textFrom(event?.content),
+    textFrom(event?.context?.bodyForAgent),
+    textFrom(event?.context?.bodyForCommands),
+    textFrom(event?.context?.content),
+    textFrom(event?.context?.text),
+    textFrom(event?.context?.body),
+    textFrom(event?.context?.rawBody),
+    textFrom(event?.context?.commandBody),
+    textFrom(event?.context?.transcript)
+  ].filter(Boolean);
+  const hasMedia = hasTaskMedia(event) || textCandidates.some((candidate) => MEDIA_PLACEHOLDER_RE.test(candidate));
 
-  if (!text) return null;
-  if (NO_REPLY_RE.test(text)) return "task_no_reply_marker";
-  if (RECEIPT_COMMAND_RE.test(text)) return hasTaskMedia(event) ? "receipt_command" : "receipt_missing_media";
-  if (INCOME_COMMAND_RE.test(text)) return hasTaskMedia(event) ? "income_command" : "income_missing_media";
-  if (GYM_COMMAND_RE.test(text)) return hasTaskMedia(event) ? "gym_command" : "gym_missing_media";
+  if (textCandidates.some((candidate) => NO_REPLY_RE.test(candidate))) return "task_no_reply_marker";
+
+  const text = textCandidates[0];
+  if (!text) return hasMedia ? "task_media" : null;
+  if (MEDIA_PLACEHOLDER_RE.test(text)) return "task_media";
+  if (RECEIPT_COMMAND_RE.test(text)) return hasMedia ? "receipt_command" : "receipt_missing_media";
+  if (INCOME_COMMAND_RE.test(text)) return hasMedia ? "income_command" : "income_missing_media";
+  if (GYM_COMMAND_RE.test(text)) return hasMedia ? "gym_command" : "gym_missing_media";
   if (MODELHEALTH_COMMAND_RE.test(text)) return "modelhealth_command";
   if (CONFIRMATION_RE.test(text)) return "receipt_confirmation";
+  if (hasMedia) return "task_media";
   return null;
 }
 

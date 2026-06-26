@@ -2,7 +2,7 @@ export type TaskTrigger =
   | {
       kind: "receipt-assistant";
       intent: "receipt" | "income";
-      source: "receipt_command" | "income_command";
+      source: "receipt_command" | "income_command" | "media_default";
     }
   | {
       kind: "calory-assistant";
@@ -73,6 +73,10 @@ export function detectTaskTrigger(text: string, hasMedia: boolean): TaskTrigger 
     return hasMedia
       ? { kind: "calory-assistant", source: "gym_command" }
       : { kind: "missing-media", task: "calory-assistant", label: "gym" };
+  }
+
+  if (hasMedia) {
+    return { kind: "receipt-assistant", intent: "receipt", source: "media_default" };
   }
 
   return { kind: "unhandled" };

@@ -3,7 +3,7 @@ import type { ReceiptConfirmationRequest } from "../../usecases/receipt-assistan
 
 export type ReceiptAssistantIntent = "receipt" | "income";
 
-export type ReceiptAssistantIntentSource = "receipt_command" | "income_command";
+export type ReceiptAssistantIntentSource = "receipt_command" | "income_command" | "media_default";
 
 export type ProcessReceiptAssistantInput = {
   sourcePlatform: string;

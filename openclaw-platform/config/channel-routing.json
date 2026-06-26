@@ -1,0 +1,35 @@
+{
+  "defaultPolicy": {
+    "modules": ["general-chat", "receipt-parser", "model-health", "calory-assistant"],
+    "media": "receipt-parser",
+    "unknownText": "general-chat"
+  },
+  "chats": {
+    "telegram:380399260": {
+      "name": "personal-finance",
+      "modules": ["receipt-parser"],
+      "media": "receipt-parser",
+      "unknownText": "ignore"
+    }
+  },
+  "modules": {
+    "general-chat": {
+      "type": "openclaw-agent"
+    },
+    "receipt-parser": {
+      "type": "receipt-assistant",
+      "version": "v1"
+    },
+    "receipt-parser-v2": {
+      "type": "receipt-assistant",
+      "version": "v2"
+    },
+    "model-health": {
+      "type": "model-health"
+    },
+    "calory-assistant": {
+      "type": "calory-assistant",
+      "version": "v1"
+    }
+  }
+}
