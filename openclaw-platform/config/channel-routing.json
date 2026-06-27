@@ -16,6 +16,12 @@
       "modules": ["general-chat", "wishlist-assistant"],
       "media": "general-chat",
       "unknownText": "general-chat"
+    },
+    "whatsapp:120363416177839839@g.us": {
+      "name": "backlog-wishlist",
+      "modules": ["general-chat", "wishlist-assistant"],
+      "media": "general-chat",
+      "unknownText": "general-chat"
     }
   },
   "modules": {

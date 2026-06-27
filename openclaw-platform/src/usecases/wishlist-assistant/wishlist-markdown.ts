@@ -49,7 +49,15 @@ const DONE_PATTERN = /^(?:DN|DONE,?)\s*[-,]?\s*/i;
 const BOARD_KEY_PATTERN = "[a-z0-9][a-z0-9_-]*";
 
 export function parseWishlistCommand(rawText: string): WishlistCommand | null {
-  const text = stripBotMention(rawText).trim();
+  for (const text of commandTextCandidates(rawText)) {
+    const command = parseWishlistCommandText(text);
+    if (command) return command;
+  }
+
+  return null;
+}
+
+function parseWishlistCommandText(text: string): WishlistCommand | null {
   const normalized = normalizeCommandText(text);
   const importBoard = detectImportBoard(text);
   if (importBoard) return { kind: "import", board: importBoard, content: text };
@@ -541,8 +549,20 @@ function stripDone(value: string): string {
 
 function stripBotMention(value: string): string {
   return value
-    .replace(/^\s*@(?:~?imn[-\s]?claw|claw|openclaw|6287887848449)(?:\s+|$)/i, "")
+    .replace(/^\s*@(?:~?imn[-\s]?claw|claw|openclaw|6287887848449|[0-9]+)(?:\s+|$)/i, "")
     .trim();
+}
+
+function stripLeadingMention(value: string): string {
+  return value.replace(/^\s*@\S+(?:\s+|$)/u, "").trim();
+}
+
+function commandTextCandidates(rawText: string): string[] {
+  return uniqueNonEmpty([stripBotMention(rawText), stripLeadingMention(rawText), rawText.trim()]);
+}
+
+function uniqueNonEmpty(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function detectImportBoard(text: string): WishlistBoardKey | null {

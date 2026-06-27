@@ -4,5 +4,6 @@ dist
 .gitignore
 .obsidian
 obsidian-vault
+openclaw-obsidian-vault
 .openclaw-home
 *.log

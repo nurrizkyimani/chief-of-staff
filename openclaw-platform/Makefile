@@ -6,7 +6,7 @@ ENV_FILE := .env
 	openclaw-version onboard gateway pairing-list-telegram pairing-approve-telegram \
 	logs status health doctor doctor-fix gateway-mode-local security-audit sandbox-enable sandbox-disable sandbox-explain \
 	sandbox-recreate sandbox-network-none sandbox-network-bridge sandbox-network-custom \
-	sandbox-egress-allowlist config-validate colima-up colima-down colima-status docker-check docker-build \
+	sandbox-egress-allowlist config-sync config-validate colima-up colima-down colima-status docker-check docker-build \
 	docker-up docker-down docker-logs
 
 help:
@@ -38,6 +38,7 @@ help:
 	@echo "  make sandbox-network-bridge"
 	@echo "  make sandbox-network-custom SANDBOX_DOCKER_NETWORK=openclaw-sandbox-egress"
 	@echo "  make sandbox-egress-allowlist"
+	@echo "  make config-sync"
 	@echo "  make config-validate"
 	@echo "  make colima-up"
 	@echo "  make colima-status"
@@ -81,7 +82,7 @@ openclaw-version:
 onboard:
 	$(OPENCLAW) onboard
 
-gateway:
+gateway: build config-sync
 	$(OPENCLAW) gateway
 
 pairing-list-telegram:
@@ -140,9 +141,10 @@ sandbox-egress-allowlist:
 	@echo "Sandbox egress allowlist domains:"
 	@cat ./config/sandbox-egress-allowlist.txt
 
-config-validate:
-	@mkdir -p ./.openclaw-home/.openclaw
-	@cp ./config/openclaw.config.json ./.openclaw-home/.openclaw/openclaw.json
+config-sync:
+	node ./scripts/sync-openclaw-config.mjs
+
+config-validate: config-sync
 	$(OPENCLAW) config validate
 
 colima-up:
