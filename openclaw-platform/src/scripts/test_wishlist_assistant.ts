@@ -22,6 +22,7 @@ function changed(content: string, text: string): string {
   assert.deepEqual(parseWishlistCommand("show ykc wish"), { kind: "show", board: "ykc" });
   assert.deepEqual(parseWishlistCommand("show ykc-wishlist"), { kind: "show", board: "ykc" });
   assert.deepEqual(parseWishlistCommand("show jkt june"), { kind: "show", board: "jkt", section: "JUNE" });
+  assert.deepEqual(parseWishlistCommand("show bali food"), { kind: "show", board: "bali", section: "FOOD" });
   assert.deepEqual(parseWishlistCommand("add ykc local food: rumah makan godean, godean"), {
     kind: "add",
     board: "ykc",
@@ -34,12 +35,18 @@ function changed(content: string, text: string): string {
     section: "JUNE",
     item: "W2 - rumah makan godean"
   });
+  assert.deepEqual(parseWishlistCommand("add bandung food: batagor kingsley"), {
+    kind: "add",
+    board: "bandung",
+    section: "FOOD",
+    item: "batagor kingsley"
+  });
   assert.deepEqual(parseWishlistCommand("done ykc rumah makan godean"), {
     kind: "done",
     board: "ykc",
     query: "rumah makan godean"
   });
-  assert.equal(parseWishlistCommand("done rumah makan godean"), null);
+  assert.equal(parseWishlistCommand("done lunch"), null);
 }
 
 {
@@ -55,6 +62,22 @@ bookstore`);
 }
 
 {
+  const command = parseWishlistCommand(`FRIENDSHIP BACKLOG
+
+JUNE
+play with alvin/shaqi`);
+  assert.deepEqual(command, {
+    kind: "import",
+    board: "friendship",
+    content: "FRIENDSHIP BACKLOG\n\nJUNE\nplay with alvin/shaqi"
+  });
+}
+
+{
+  assert.equal(parseWishlistCommand("hello"), null);
+}
+
+{
   const next = changed("# YKC WISHLIST\n\n## LOCAL FOOD\nKlathak bari\n", "add ykc local food: rumah makan godean, godean");
   assert.match(next, /## LOCAL FOOD\nKlathak bari\nrumah makan godean, godean/);
 }
@@ -62,6 +85,16 @@ bookstore`);
 {
   const next = changed("", "add ykc local food: rumah makan godean, godean");
   assert.match(next, /^# YKC WISHLIST\n\n## LOCAL FOOD\nrumah makan godean, godean\n$/);
+}
+
+{
+  const next = changed("", "add bandung food: batagor kingsley");
+  assert.match(next, /^# BANDUNG WISHLIST\n\n## FOOD\nbatagor kingsley\n$/);
+}
+
+{
+  const next = changed("# FRIENDSHIP BACKLOG\n\n### JUNE\nplay with alvin\n", "add friendship june: play with andre");
+  assert.match(next, /^# FRIENDSHIP BACKLOG\n\n### JUNE\nplay with alvin\nplay with andre\n$/);
 }
 
 {

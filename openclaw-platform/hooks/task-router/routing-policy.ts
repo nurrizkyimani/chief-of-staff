@@ -132,5 +132,9 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
 
 export function shouldSuppressDefaultAgent(context: TaskRouterContext, policy: ResolvedChannelPolicy): boolean {
   if (shouldLetDefaultAgentHandle(context, policy)) return false;
+  const trigger = detectTaskTrigger(context.text, context.mediaCandidates.length > 0);
+  if (trigger.kind === "wishlist-assistant" && !policy.modules.includes("wishlist-assistant")) {
+    return !policy.modules.includes("general-chat");
+  }
   return shouldGateDefaultAgentReply(context.text, context.mediaCandidates.length > 0) || !policy.modules.includes("general-chat");
 }

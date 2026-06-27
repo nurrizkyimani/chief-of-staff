@@ -199,16 +199,24 @@ trigger it by natively mentioning the bot in WhatsApp and sending commands:
 show ykc
 show ykc activity
 show jkt june
+show bali food
 add ykc local food: rumah makan godean, godean
 add jkt june w2: rumah makan godean
+add bandung food: batagor kingsley
 done ykc rumah makan godean
 undone ykc rumah makan godean
 ```
 
-Pasting a full block that starts with `YKC WISHLIST` or `!!! JKT WISHLIST !!!`
-imports/upserts that board. Pending lines stay plain text; done lines are
-normalized to `DN item`. Wishlist writes use path-specific git commits so
-unrelated staged vault files are not included.
+Pasting a full block that starts with a board title such as `YKC WISHLIST`,
+`!!! JKT WISHLIST !!!`, or `FRIENDSHIP BACKLOG` imports/upserts that board.
+Pending lines stay plain text; done lines are normalized to `DN item`. Wishlist
+writes use path-specific git commits so unrelated staged vault files are not
+included.
+
+Board keys are dynamic. The first word after `show`, `add`, `done`, or `undone`
+is the board key. Existing headings like `# FRIENDSHIP BACKLOG` can be addressed
+as `friendship`; new keys like `bandung` create headings like
+`# BANDUNG WISHLIST`.
 
 ## Docker + Colima (RFC parity path)
 

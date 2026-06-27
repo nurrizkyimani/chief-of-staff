@@ -1,4 +1,4 @@
-export type WishlistBoardKey = "ykc" | "jkt";
+export type WishlistBoardKey = string;
 
 export type WishlistCommand =
   | {
@@ -45,13 +45,8 @@ type Heading = {
   index: number;
 };
 
-const BOARD_TITLES: Record<WishlistBoardKey, string> = {
-  ykc: "YKC WISHLIST",
-  jkt: "JKT WISHLIST"
-};
-
-const KNOWN_BOARDS = new Set<WishlistBoardKey>(["ykc", "jkt"]);
 const DONE_PATTERN = /^(?:DN|DONE,?)\s*[-,]?\s*/i;
+const BOARD_KEY_PATTERN = "[a-z0-9][a-z0-9_-]*";
 
 export function parseWishlistCommand(rawText: string): WishlistCommand | null {
   const text = stripBotMention(rawText).trim();
@@ -59,7 +54,7 @@ export function parseWishlistCommand(rawText: string): WishlistCommand | null {
   const importBoard = detectImportBoard(text);
   if (importBoard) return { kind: "import", board: importBoard, content: text };
 
-  const showMatch = normalized.match(/^show\s+([a-z]+)(?:[-\s]*(?:wishlist|wish))?(?:\s+(.+))?$/i);
+  const showMatch = normalized.match(new RegExp(`^show\\s+(${BOARD_KEY_PATTERN})(?:[-\\s]*(?:wishlist|wish))?(?:\\s+(.+))?$`, "i"));
   if (showMatch) {
     const board = normalizeBoard(showMatch[1]);
     if (!board) return null;
@@ -67,7 +62,7 @@ export function parseWishlistCommand(rawText: string): WishlistCommand | null {
     return section ? { kind: "show", board, section } : { kind: "show", board };
   }
 
-  const addMatch = text.match(/^add(?:\s+in)?\s+([a-z]+)(?:[-\s]*(?:wishlist|wish))?\s+([^:]+):\s*(.+)$/i);
+  const addMatch = text.match(new RegExp(`^add(?:\\s+in)?\\s+(${BOARD_KEY_PATTERN})(?:[-\\s]*(?:wishlist|wish))?\\s+([^:]+):\\s*(.+)$`, "i"));
   if (addMatch) {
     const board = normalizeBoard(addMatch[1]);
     if (!board) return null;
@@ -78,7 +73,7 @@ export function parseWishlistCommand(rawText: string): WishlistCommand | null {
     return { kind: "add", board, section, item };
   }
 
-  const doneMatch = text.match(/^(done|undone)\s+(ykc|jkt)(?:[-\s]*(?:wishlist|wish))?\s+(.+)$/i);
+  const doneMatch = text.match(new RegExp(`^(done|undone)\\s+(${BOARD_KEY_PATTERN})(?:[-\\s]*(?:wishlist|wish))?\\s+(.+)$`, "i"));
   if (doneMatch) {
     const board = normalizeBoard(doneMatch[2]);
     const query = normalizeItem(doneMatch[3]);
@@ -111,7 +106,7 @@ export function normalizeDoneLine(line: string): string {
 function showWishlist(content: string, board: WishlistBoardKey, section?: string): WishlistEditResult {
   const boardRange = findBoardRange(content, board);
   if (!boardRange) {
-    return { status: "not_found", message: `${BOARD_TITLES[board]} is empty.` };
+    return { status: "not_found", message: `${boardTitle(board)} is empty.` };
   }
 
   if (!section) {
@@ -123,7 +118,7 @@ function showWishlist(content: string, board: WishlistBoardKey, section?: string
 
   const sectionRange = findSectionRange(content, boardRange, section);
   if (!sectionRange) {
-    return { status: "not_found", message: `${BOARD_TITLES[board]} / ${section.toUpperCase()} was not found.` };
+    return { status: "not_found", message: `${boardLabel(content, board)} / ${section.toUpperCase()} was not found.` };
   }
 
   return {
@@ -139,7 +134,7 @@ function addWishlistItem(content: string, board: WishlistBoardKey, section: stri
   const sectionEndLine = findSectionEndLine(lines, ensured.sectionHeadingLine);
 
   if (sectionContainsItem(lines, ensured.sectionHeadingLine, sectionEndLine, normalizedItem)) {
-    return { status: "invalid", message: `Already exists in ${BOARD_TITLES[board]} / ${section.toUpperCase()}: ${normalizedItem}` };
+    return { status: "invalid", message: `Already exists in ${boardLabel(ensured.content, board)} / ${section.toUpperCase()}: ${normalizedItem}` };
   }
 
   const insertAt = trimTrailingBlankLinesBefore(lines, sectionEndLine);
@@ -148,7 +143,7 @@ function addWishlistItem(content: string, board: WishlistBoardKey, section: stri
   return {
     status: "changed",
     content: normalizeDocument(lines.join("\n")),
-    message: `Added to ${BOARD_TITLES[board]} / ${section.toUpperCase()}: ${normalizedItem}`,
+    message: `Added to ${boardLabel(ensured.content, board)} / ${section.toUpperCase()}: ${normalizedItem}`,
     commitMessage: `wishlist: add ${board} ${section.toLowerCase()} item`
   };
 }
@@ -199,7 +194,7 @@ function markWishlistItem(
 function importWishlistBoard(content: string, board: WishlistBoardKey, importText: string): WishlistEditResult {
   const parsed = parseBoardImport(board, importText);
   if (parsed.sections.length === 0) {
-    return { status: "invalid", message: `No sections found in ${BOARD_TITLES[board]} import.` };
+    return { status: "invalid", message: `No sections found in ${boardTitle(board)} import.` };
   }
 
   let next = ensureBoard(content, board);
@@ -234,13 +229,13 @@ function importWishlistBoard(content: string, board: WishlistBoardKey, importTex
 
   const normalized = normalizeDocument(next);
   if (normalized === normalizeDocument(content)) {
-    return { status: "invalid", message: `${BOARD_TITLES[board]} import had no new items.` };
+    return { status: "invalid", message: `${boardLabel(normalized, board)} import had no new items.` };
   }
 
   return {
     status: "changed",
     content: normalized,
-    message: `Imported ${BOARD_TITLES[board]}.`,
+    message: `Imported ${boardLabel(normalized, board)}.`,
     commitMessage: "wishlist: import backlog wishlist"
   };
 }
@@ -251,11 +246,10 @@ function parseBoardImport(board: WishlistBoardKey, importText: string): { sectio
     .filter((line) => line.length > 0);
   const sections: Array<{ title: string; items: string[] }> = [];
   let current: { title: string; items: string[] } | null = null;
-  const boardTitle = BOARD_TITLES[board];
 
   for (const line of lines) {
     const cleaned = cleanImportLine(line);
-    if (!cleaned || isBoardTitle(cleaned, boardTitle)) continue;
+    if (!cleaned || isBoardTitle(cleaned, board)) continue;
     if (looksLikeSection(cleaned)) {
       current = { title: normalizeSectionInput(cleaned), items: [] };
       sections.push(current);
@@ -275,7 +269,7 @@ function ensureBoardAndSection(
 ): { content: string; sectionHeadingLine: number } {
   const withBoard = ensureBoard(content, board);
   const boardRange = findBoardRange(withBoard, board);
-  if (!boardRange) throw new Error(`Failed to create ${BOARD_TITLES[board]}.`);
+  if (!boardRange) throw new Error(`Failed to create ${boardTitle(board)}.`);
   const sectionRange = findSectionRange(withBoard, boardRange, section);
   if (sectionRange) {
     return {
@@ -301,13 +295,12 @@ function ensureBoardAndSection(
 function ensureBoard(content: string, board: WishlistBoardKey): string {
   if (findBoardRange(content, board)) return content;
   const prefix = content.trim().length > 0 ? `${content.trimEnd()}\n\n` : "";
-  return `${prefix}# ${BOARD_TITLES[board]}\n`;
+  return `${prefix}# ${boardTitle(board)}\n`;
 }
 
 function findBoardRange(content: string, board: WishlistBoardKey): { start: number; end: number; headingIndex: number } | null {
-  const title = BOARD_TITLES[board];
   const headings = findHeadings(content);
-  const headingIndex = headings.findIndex((heading) => heading.level === 1 && normalizeHeading(heading.title) === normalizeHeading(title));
+  const headingIndex = headings.findIndex((heading) => heading.level === 1 && boardFromTitle(heading.title) === board);
   if (headingIndex < 0) return null;
   const heading = headings[headingIndex];
   const nextBoard = headings.slice(headingIndex + 1).find((candidate) => candidate.level === 1);
@@ -449,15 +442,41 @@ function normalizeAddTarget(
 }
 
 function normalizeBoard(value: string): WishlistBoardKey | null {
-  const normalized = value.trim().toLowerCase();
-  return KNOWN_BOARDS.has(normalized as WishlistBoardKey) ? (normalized as WishlistBoardKey) : null;
+  const normalized = normalizeBoardKey(value).replace(/-(?:wishlist|wish)$/i, "");
+  return normalized && new RegExp(`^${BOARD_KEY_PATTERN}$`, "i").test(normalized) ? normalized : null;
 }
 
 function boardFromTitle(title: string): WishlistBoardKey | null {
   const normalized = normalizeHeading(title);
-  if (normalized === normalizeHeading(BOARD_TITLES.ykc)) return "ykc";
-  if (normalized === normalizeHeading(BOARD_TITLES.jkt)) return "jkt";
-  return null;
+  if (normalized === "WISHLIST" || normalized === "BACKLOG") return null;
+  return normalizeBoardKey(normalized.replace(/\s+(?:WISHLIST|BACKLOG)$/i, ""));
+}
+
+function boardTitle(board: WishlistBoardKey): string {
+  return `${displayBoardKey(board)} WISHLIST`;
+}
+
+function boardLabel(content: string, board: WishlistBoardKey): string {
+  const range = findBoardRange(content, board);
+  if (!range) return boardTitle(board);
+  const heading = findHeadings(content).find((candidate) => candidate.index === range.headingIndex);
+  return heading?.title ?? boardTitle(board);
+}
+
+function displayBoardKey(board: WishlistBoardKey): string {
+  return board.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
+}
+
+function normalizeBoardKey(value: string): string {
+  return value
+    .replace(/^!+\s*/, "")
+    .replace(/\s*!+$/, "")
+    .replace(/^#+\s*/, "")
+    .replace(/[:：]\s*$/, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, "-")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeSectionInput(value: string): string {
@@ -488,8 +507,8 @@ function cleanImportLine(value: string): string {
   return normalizeItem(value.replace(/^#+\s*/, "").replace(/^!+\s*/, "").replace(/\s*!+$/, ""));
 }
 
-function isBoardTitle(value: string, boardTitle: string): boolean {
-  return normalizeHeading(value) === normalizeHeading(boardTitle) || normalizeHeading(value) === "WISHLIST";
+function isBoardTitle(value: string, board: WishlistBoardKey): boolean {
+  return boardFromTitle(value) === board || normalizeHeading(value) === "WISHLIST";
 }
 
 function looksLikeSection(value: string): boolean {
@@ -529,8 +548,8 @@ function stripBotMention(value: string): string {
 function detectImportBoard(text: string): WishlistBoardKey | null {
   const firstMeaningfulLine = splitLines(text).map(cleanImportLine).find(Boolean);
   if (!firstMeaningfulLine) return null;
+  if (/^(?:show|add|done|undone)\b/i.test(firstMeaningfulLine)) return null;
   const normalized = normalizeHeading(firstMeaningfulLine);
-  if (normalized === normalizeHeading(BOARD_TITLES.ykc)) return "ykc";
-  if (normalized === normalizeHeading(BOARD_TITLES.jkt)) return "jkt";
-  return null;
+  if (!/\s(?:WISHLIST|BACKLOG)$/i.test(normalized)) return null;
+  return boardFromTitle(firstMeaningfulLine);
 }

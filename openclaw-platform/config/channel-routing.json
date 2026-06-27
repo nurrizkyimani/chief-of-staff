@@ -1,6 +1,6 @@
 {
   "defaultPolicy": {
-    "modules": ["general-chat", "receipt-parser", "model-health", "calory-assistant", "wishlist-assistant"],
+    "modules": ["general-chat", "receipt-parser", "model-health", "calory-assistant"],
     "media": "receipt-parser",
     "unknownText": "general-chat"
   },
