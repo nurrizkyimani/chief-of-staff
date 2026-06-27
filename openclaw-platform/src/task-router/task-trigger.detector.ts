@@ -1,3 +1,5 @@
+import { parseWishlistCommand } from "../usecases/wishlist-assistant/wishlist-markdown.js";
+
 export type TaskTrigger =
   | {
       kind: "receipt-assistant";
@@ -15,6 +17,10 @@ export type TaskTrigger =
   | {
       kind: "model-health";
       source: "modelhealth_command";
+    }
+  | {
+      kind: "wishlist-assistant";
+      source: "wishlist_command" | "wishlist_import";
     }
   | {
       kind: "ambiguous";
@@ -47,6 +53,14 @@ export function detectTaskTrigger(text: string, hasMedia: boolean): TaskTrigger 
 
   if (MODEL_HEALTH_COMMAND_PATTERN.test(text)) {
     return { kind: "model-health", source: "modelhealth_command" };
+  }
+
+  const wishlistCommand = parseWishlistCommand(text);
+  if (wishlistCommand) {
+    return {
+      kind: "wishlist-assistant",
+      source: wishlistCommand.kind === "import" ? "wishlist_import" : "wishlist_command"
+    };
   }
 
   const requestedTasks = [hasReceipt || hasIncome, hasGym].filter(Boolean).length;

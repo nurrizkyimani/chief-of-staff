@@ -34,6 +34,8 @@ const EnvSchema = z.object({
   OPENCLAW_MEMORY_VAULT_PATH: z.string().min(1).optional(),
   OPENCLAW_MEMORY_GIT_AUTO_COMMIT: BoolLikeSchema.default(false),
   OPENCLAW_MEMORY_GIT_AUTO_PUSH: BoolLikeSchema.default(false),
+  WISHLIST_FILE_PATH: z.string().min(1).optional(),
+  WISHLIST_ALLOWED_GROUPS: z.string().default("120363408773982912@g.us"),
   TZ: z.string().default("Asia/Jakarta")
 });
 

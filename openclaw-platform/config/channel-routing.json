@@ -10,6 +10,12 @@
       "modules": ["receipt-parser"],
       "media": "receipt-parser",
       "unknownText": "ignore"
+    },
+    "whatsapp:120363408773982912@g.us": {
+      "name": "backlog-wishlist",
+      "modules": ["general-chat", "wishlist-assistant"],
+      "media": "general-chat",
+      "unknownText": "general-chat"
     }
   },
   "modules": {
@@ -29,6 +35,10 @@
     },
     "calory-assistant": {
       "type": "calory-assistant",
+      "version": "v1"
+    },
+    "wishlist-assistant": {
+      "type": "wishlist-assistant",
       "version": "v1"
     }
   }

@@ -127,6 +127,18 @@ function pickTelegramAllowedFromId(event: any): string | null {
 export function pickTelegramSendChatId(event: any): string | null {
   const metadata = event?.context?.metadata ?? {};
   const context = event?.context ?? {};
+  const channelHint = String(
+    metadata.platform ??
+      metadata.provider ??
+      metadata.channelId ??
+      context.channelId ??
+      event?.messageProvider ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  if (channelHint.includes("whatsapp")) return null;
+
   const from = event?.context?.from ?? {};
   const metadataFrom = metadata.from ?? {};
   const metadataChat = metadata.chat ?? {};

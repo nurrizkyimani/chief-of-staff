@@ -8,7 +8,8 @@
     "validate-schema": "tsx src/scripts/validate_receipt_schema.ts",
     "check-classification": "tsx src/scripts/check_receipt_classification.ts",
     "backfill": "tsx src/scripts/backfill_receipts.ts",
-    "parity-compare": "tsx src/scripts/compare_parity_results.ts"
+    "parity-compare": "tsx src/scripts/compare_parity_results.ts",
+    "test:wishlist": "tsx src/scripts/test_wishlist_assistant.ts"
   },
   "dependencies": {
     "@buape/carbon": "^0.14.0",

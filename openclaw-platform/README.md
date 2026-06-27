@@ -51,6 +51,8 @@ Fill `.env` values:
 - `OPENCLAW_MEMORY_GIT_AUTO_COMMIT` (`true` = commit memory file changes after writes)
 - `OPENCLAW_MEMORY_GIT_AUTO_PUSH` (`true` = push memory commits to the vault remote after commit)
 - `RECEIPT_JOURNAL_PATH` (recommended: `<vault>/memory/receipts/receipt-journal.md`)
+- `WISHLIST_FILE_PATH` (optional; defaults to `<vault>/memory/wishlists/backlog-wishlist.md`)
+- `WISHLIST_ALLOWED_GROUPS` (comma-separated WhatsApp group ids allowed to edit wishlist memory)
 
 Receipt parser provider/model selection lives in `config/providers.json`, not `.env`.
 
@@ -87,8 +89,13 @@ Important updates before use:
 Core fields included in the config:
 - internal hook discovery + `task-router` enablement
 - Telegram `dmPolicy=allowlist`
-- sandbox defaults (`mode=all`, `scope=session`, `workspaceAccess=rw`)
+- sandbox defaults (`mode=off` for Dockerized VPS gateway deployments)
 - sandbox Docker network default `none` (default deny egress)
+
+When the gateway itself runs inside Docker, keep `agents.defaults.sandbox.mode=off`
+unless the container also has access to a Docker CLI and Docker socket. Otherwise
+general agent replies can fail with `Sandbox mode requires Docker, but the
+"docker" command was not found in PATH`.
 
 Then apply and validate:
 
@@ -182,6 +189,34 @@ For receipt journaling, point `RECEIPT_JOURNAL_PATH` at `memory/receipts/receipt
 Git automation is off by default. Set `OPENCLAW_MEMORY_GIT_AUTO_COMMIT=true` to commit
 successful memory writes in the vault repo. Set `OPENCLAW_MEMORY_GIT_AUTO_PUSH=true` only
 when you also want those commits pushed to the vault remote.
+
+Wishlist memory lives at `memory/wishlists/backlog-wishlist.md` by default. The
+`wishlist-assistant` task is deterministic and is intended for the WhatsApp
+Backlog/Wishlist group only. With the group configured as `requireMention=true`,
+trigger it by natively mentioning the bot in WhatsApp and sending commands:
+
+```text
+show ykc
+show ykc activity
+show jkt june
+show bali food
+add ykc local food: rumah makan godean, godean
+add jkt june w2: rumah makan godean
+add bandung food: batagor kingsley
+done ykc rumah makan godean
+undone ykc rumah makan godean
+```
+
+Pasting a full block that starts with a board title such as `YKC WISHLIST`,
+`!!! JKT WISHLIST !!!`, or `FRIENDSHIP BACKLOG` imports/upserts that board.
+Pending lines stay plain text; done lines are normalized to `DN item`. Wishlist
+writes use path-specific git commits so unrelated staged vault files are not
+included.
+
+Board keys are dynamic. The first word after `show`, `add`, `done`, or `undone`
+is the board key. Existing headings like `# FRIENDSHIP BACKLOG` can be addressed
+as `friendship`; new keys like `bandung` create headings like
+`# BANDUNG WISHLIST`.
 
 ## Docker + Colima (RFC parity path)
 
