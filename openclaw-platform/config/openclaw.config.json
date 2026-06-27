@@ -43,7 +43,6 @@
       "enabled": true,
       "dmPolicy": "allowlist",
       "allowFrom": [
-        "+6287887848449",
         "+6285155340077"
       ],
       "selfChatMode": false,
@@ -69,15 +68,7 @@
   },
   "messages": {
     "groupChat": {
-      "mentionPatterns": [
-        "@openclaw",
-        "openclaw",
-        "@claw",
-        "claw",
-        "@imn",
-        "imn-finance-agent",
-        "imn finance agent"
-      ]
+      "mentionPatterns": []
     }
   },
   "hooks": {
