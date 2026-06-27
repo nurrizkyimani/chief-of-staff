@@ -3,7 +3,13 @@ import { resolve } from "node:path";
 import { detectTaskTrigger, shouldGateDefaultAgentReply } from "../../dist/task-router/task-trigger.detector.js";
 import type { TaskRouterContext } from "./types.ts";
 
-type ModuleId = "general-chat" | "receipt-parser" | "receipt-parser-v2" | "model-health" | "calory-assistant";
+type ModuleId =
+  | "general-chat"
+  | "receipt-parser"
+  | "receipt-parser-v2"
+  | "model-health"
+  | "calory-assistant"
+  | "wishlist-assistant";
 
 type ChannelPolicy = {
   name?: string;
@@ -115,6 +121,7 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
   }
 
   if (trigger.kind === "model-health") return policy.modules.includes("model-health");
+  if (trigger.kind === "wishlist-assistant") return policy.modules.includes("wishlist-assistant");
   if (trigger.kind === "calory-assistant") return policy.modules.includes("calory-assistant");
   if (trigger.kind === "missing-media" && trigger.task === "calory-assistant") {
     return policy.modules.includes("calory-assistant");

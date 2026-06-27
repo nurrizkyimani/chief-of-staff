@@ -34,12 +34,12 @@ export async function commitMemoryVaultFile(filePath: string, message: string): 
 
   await git(vaultPath, ["add", "--", relativeFilePath]);
 
-  const hasChanges = await hasStagedChanges(vaultPath);
+  const hasChanges = await hasStagedChanges(vaultPath, relativeFilePath);
   if (!hasChanges) {
     return { status: "skipped", reason: "no_changes" };
   }
 
-  await git(vaultPath, ["commit", "-m", message]);
+  await git(vaultPath, ["commit", "-m", message, "--", relativeFilePath]);
 
   if (env.OPENCLAW_MEMORY_GIT_AUTO_PUSH) {
     await git(vaultPath, ["push"]);
@@ -55,9 +55,9 @@ async function git(cwd: string, args: string[]): Promise<void> {
   await execFileAsync("git", args, { cwd });
 }
 
-async function hasStagedChanges(cwd: string): Promise<boolean> {
+async function hasStagedChanges(cwd: string, relativeFilePath: string): Promise<boolean> {
   try {
-    await execFileAsync("git", ["diff", "--cached", "--quiet"], { cwd });
+    await execFileAsync("git", ["diff", "--cached", "--quiet", "--", relativeFilePath], { cwd });
     return false;
   } catch (error) {
     const exitCode = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;

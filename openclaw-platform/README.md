@@ -51,6 +51,8 @@ Fill `.env` values:
 - `OPENCLAW_MEMORY_GIT_AUTO_COMMIT` (`true` = commit memory file changes after writes)
 - `OPENCLAW_MEMORY_GIT_AUTO_PUSH` (`true` = push memory commits to the vault remote after commit)
 - `RECEIPT_JOURNAL_PATH` (recommended: `<vault>/memory/receipts/receipt-journal.md`)
+- `WISHLIST_FILE_PATH` (optional; defaults to `<vault>/memory/wishlists/backlog-wishlist.md`)
+- `WISHLIST_ALLOWED_GROUPS` (comma-separated WhatsApp group ids allowed to edit wishlist memory)
 
 Receipt parser provider/model selection lives in `config/providers.json`, not `.env`.
 
@@ -187,6 +189,26 @@ For receipt journaling, point `RECEIPT_JOURNAL_PATH` at `memory/receipts/receipt
 Git automation is off by default. Set `OPENCLAW_MEMORY_GIT_AUTO_COMMIT=true` to commit
 successful memory writes in the vault repo. Set `OPENCLAW_MEMORY_GIT_AUTO_PUSH=true` only
 when you also want those commits pushed to the vault remote.
+
+Wishlist memory lives at `memory/wishlists/backlog-wishlist.md` by default. The
+`wishlist-assistant` task is deterministic and is intended for the WhatsApp
+Backlog/Wishlist group only. With the group configured as `requireMention=true`,
+trigger it by natively mentioning the bot in WhatsApp and sending commands:
+
+```text
+show ykc
+show ykc activity
+show jkt june
+add ykc local food: rumah makan godean, godean
+add jkt june w2: rumah makan godean
+done ykc rumah makan godean
+undone ykc rumah makan godean
+```
+
+Pasting a full block that starts with `YKC WISHLIST` or `!!! JKT WISHLIST !!!`
+imports/upserts that board. Pending lines stay plain text; done lines are
+normalized to `DN item`. Wishlist writes use path-specific git commits so
+unrelated staged vault files are not included.
 
 ## Docker + Colima (RFC parity path)
 
