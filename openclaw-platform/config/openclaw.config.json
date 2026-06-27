@@ -2,10 +2,10 @@
   "agents": {
     "defaults": {
       "model": {
-         "primary": "google/gemini-3.1-flash-lite"
+        "primary": "google/gemini-3.1-flash-lite"
       },
       "sandbox": {
-        "mode": "all",
+        "mode": "off",
         "backend": "docker",
         "scope": "session",
         "workspaceAccess": "rw",
@@ -38,6 +38,46 @@
       "streaming": {
         "mode": "off"
       }
+    },
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "allowFrom": [
+        "+6287887848449",
+        "+6285155340077"
+      ],
+      "selfChatMode": false,
+      "groupPolicy": "open",
+      "groups": {
+        "*": {
+          "requireMention": true
+        },
+        "120363408773982912@g.us": {
+          "requireMention": true
+        },
+        "120363419541163611@g.us": {
+          "requireMention": true
+        },
+        "120363417666996243@g.us": {
+          "requireMention": true
+        },
+        "6285727849949-1389175531@g.us": {
+          "requireMention": true
+        }
+      }
+    }
+  },
+  "messages": {
+    "groupChat": {
+      "mentionPatterns": [
+        "@openclaw",
+        "openclaw",
+        "@claw",
+        "claw",
+        "@imn",
+        "imn-finance-agent",
+        "imn finance agent"
+      ]
     }
   },
   "hooks": {

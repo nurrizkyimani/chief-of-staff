@@ -87,8 +87,13 @@ Important updates before use:
 Core fields included in the config:
 - internal hook discovery + `task-router` enablement
 - Telegram `dmPolicy=allowlist`
-- sandbox defaults (`mode=all`, `scope=session`, `workspaceAccess=rw`)
+- sandbox defaults (`mode=off` for Dockerized VPS gateway deployments)
 - sandbox Docker network default `none` (default deny egress)
+
+When the gateway itself runs inside Docker, keep `agents.defaults.sandbox.mode=off`
+unless the container also has access to a Docker CLI and Docker socket. Otherwise
+general agent replies can fail with `Sandbox mode requires Docker, but the
+"docker" command was not found in PATH`.
 
 Then apply and validate:
 
