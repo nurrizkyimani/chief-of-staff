@@ -56,6 +56,7 @@ jobs:
       VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
       VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/openclaw-platform' }}
       SSHPASS: ${{ secrets.VPS_PASSWORD }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       OPENCLAW_ENV_FILE: ${{ secrets.OPENCLAW_ENV_FILE }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
@@ -72,8 +73,8 @@ jobs:
             exit 1
           fi
 
-          if [ -z "${SSHPASS}" ]; then
-            echo "Missing GitHub secret: VPS_PASSWORD" >&2
+          if [ -z "${SSHPASS}" ] && [ -z "${VPS_SSH_KEY}" ]; then
+            echo "Missing GitHub secret: set VPS_SSH_KEY or VPS_PASSWORD" >&2
             exit 1
           fi
 
@@ -83,29 +84,45 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends rsync sshpass openssh-client
 
-      - name: Trust VPS SSH host key
+      - name: Configure SSH
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           ssh-keyscan -p "${VPS_PORT}" "${VPS_HOST}" >> ~/.ssh/known_hosts
 
+          if [ -n "${VPS_SSH_KEY}" ]; then
+            printf '%s\n' "${VPS_SSH_KEY}" > ~/.ssh/vps_deploy_key
+            chmod 600 ~/.ssh/vps_deploy_key
+            {
+              echo 'SSH_AUTH_PREFIX='
+              echo 'RSYNC_AUTH_PREFIX='
+              echo "SSH_COMMAND=ssh -i ${HOME}/.ssh/vps_deploy_key -o IdentitiesOnly=yes -p ${VPS_PORT}"
+            } >> "${GITHUB_ENV}"
+          else
+            {
+              echo 'SSH_AUTH_PREFIX=sshpass -e'
+              echo 'RSYNC_AUTH_PREFIX=sshpass -e'
+              echo "SSH_COMMAND=ssh -p ${VPS_PORT}"
+            } >> "${GITHUB_ENV}"
+          fi
+
       - name: Create deploy directory
         run: |
           set -euo pipefail
-          sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+          ${SSH_AUTH_PREFIX} ${SSH_COMMAND} "${VPS_USER}@${VPS_HOST}" \
             "mkdir -p '${VPS_DEPLOY_PATH}' '${VPS_DEPLOY_PATH}/.secrets'"
 
       - name: Sync application files
         run: |
           set -euo pipefail
-          sshpass -e rsync -az --delete \
+          ${RSYNC_AUTH_PREFIX} rsync -az --delete \
             --exclude ".env" \
             --exclude ".openclaw-home/" \
             --exclude ".secrets/" \
             --exclude "dist/" \
             --exclude "node_modules/" \
-            -e "ssh -p ${VPS_PORT}" \
+            -e "${SSH_COMMAND}" \
             "${APP_DIR}/" "${VPS_USER}@${VPS_HOST}:${VPS_DEPLOY_PATH}/"
 
       - name: Write runtime secrets
@@ -113,12 +130,12 @@ jobs:
           set -euo pipefail
 
           if [ -n "${OPENCLAW_ENV_FILE}" ]; then
-            printf '%s' "${OPENCLAW_ENV_FILE}" | sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+            printf '%s' "${OPENCLAW_ENV_FILE}" | ${SSH_AUTH_PREFIX} ${SSH_COMMAND} "${VPS_USER}@${VPS_HOST}" \
               "cat > '${VPS_DEPLOY_PATH}/.env'"
           fi
 
           if [ -n "${GOOGLE_SERVICE_ACCOUNT_JSON}" ]; then
-            printf '%s' "${GOOGLE_SERVICE_ACCOUNT_JSON}" | sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+            printf '%s' "${GOOGLE_SERVICE_ACCOUNT_JSON}" | ${SSH_AUTH_PREFIX} ${SSH_COMMAND} "${VPS_USER}@${VPS_HOST}" \
               "cat > '${VPS_DEPLOY_PATH}/.secrets/service-account.json'"
           fi
 
@@ -126,7 +143,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          sshpass -e ssh -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
+          ${SSH_AUTH_PREFIX} ${SSH_COMMAND} "${VPS_USER}@${VPS_HOST}" \
             "VPS_DEPLOY_PATH='${VPS_DEPLOY_PATH}' bash -s" <<'REMOTE'
           set -euo pipefail
 
@@ -172,6 +189,15 @@ jobs:
           fi
 
           mkdir -p .openclaw-home .secrets
+          mkdir -p .openclaw-home/.openclaw
+
+          if [ -f config/openclaw.config.json ]; then
+            cp config/openclaw.config.json .openclaw-home/.openclaw/openclaw.json
+            sed -i \
+              -e "s#/Users/nurrizky/dev/chief-of-staff/openclaw-platform/hooks#/app/hooks#g" \
+              -e "s#/Users/nurrizky/dev/chief-of-staff/openclaw-platform/plugins/task-gate#/app/plugins/task-gate#g" \
+              .openclaw-home/.openclaw/openclaw.json
+          fi
 
           if [ -f .secrets/service-account.json ]; then
             export GOOGLE_APPLICATION_CREDENTIALS=./.secrets/service-account.json
