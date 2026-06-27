@@ -121,7 +121,9 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
   }
 
   if (trigger.kind === "model-health") return policy.modules.includes("model-health");
-  if (trigger.kind === "wishlist-assistant") return policy.modules.includes("wishlist-assistant");
+  if (trigger.kind === "wishlist-assistant") {
+    return policy.modules.includes("wishlist-assistant") || context.sourcePlatform === "whatsapp";
+  }
   if (trigger.kind === "calory-assistant") return policy.modules.includes("calory-assistant");
   if (trigger.kind === "missing-media" && trigger.task === "calory-assistant") {
     return policy.modules.includes("calory-assistant");
@@ -133,8 +135,6 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
 export function shouldSuppressDefaultAgent(context: TaskRouterContext, policy: ResolvedChannelPolicy): boolean {
   if (shouldLetDefaultAgentHandle(context, policy)) return false;
   const trigger = detectTaskTrigger(context.text, context.mediaCandidates.length > 0);
-  if (trigger.kind === "wishlist-assistant" && !policy.modules.includes("wishlist-assistant")) {
-    return !policy.modules.includes("general-chat");
-  }
+  if (trigger.kind === "wishlist-assistant" && context.sourcePlatform === "whatsapp") return true;
   return shouldGateDefaultAgentReply(context.text, context.mediaCandidates.length > 0) || !policy.modules.includes("general-chat");
 }

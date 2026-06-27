@@ -52,7 +52,7 @@ Fill `.env` values:
 - `OPENCLAW_MEMORY_GIT_AUTO_PUSH` (`true` = push memory commits to the vault remote after commit)
 - `RECEIPT_JOURNAL_PATH` (recommended: `<vault>/memory/receipts/receipt-journal.md`)
 - `WISHLIST_FILE_PATH` (optional; defaults to `<vault>/memory/wishlists/backlog-wishlist.md`)
-- `WISHLIST_ALLOWED_GROUPS` (comma-separated WhatsApp group ids allowed to edit wishlist memory)
+- `WISHLIST_ALLOWED_GROUPS` (comma-separated WhatsApp group ids allowed to edit wishlist memory; `*` allows any WhatsApp group that reaches this task)
 
 Receipt parser provider/model selection lives in `config/providers.json`, not `.env`.
 

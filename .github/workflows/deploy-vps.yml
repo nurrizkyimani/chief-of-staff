@@ -120,6 +120,7 @@ jobs:
             --exclude ".env" \
             --exclude ".openclaw-home/" \
             --exclude ".secrets/" \
+            --exclude "openclaw-obsidian-vault/" \
             --exclude "dist/" \
             --exclude "node_modules/" \
             -e "${SSH_COMMAND}" \
@@ -167,9 +168,18 @@ jobs:
             fi
 
             run_as_root apt-get update
-            run_as_root apt-get install -y --no-install-recommends make docker.io docker-compose-plugin \
-              || run_as_root apt-get install -y --no-install-recommends make docker.io docker-compose-v2
+            run_as_root apt-get install -y --no-install-recommends make git docker.io docker-compose-plugin \
+              || run_as_root apt-get install -y --no-install-recommends make git docker.io docker-compose-v2
             run_as_root systemctl enable --now docker || true
+          fi
+
+          if ! command -v git >/dev/null 2>&1; then
+            if ! command -v apt-get >/dev/null 2>&1; then
+              echo "git is missing and this host does not use apt-get." >&2
+              exit 1
+            fi
+            run_as_root apt-get update
+            run_as_root apt-get install -y --no-install-recommends git
           fi
 
           compose() {
@@ -190,6 +200,16 @@ jobs:
 
           mkdir -p .openclaw-home .secrets
           mkdir -p .openclaw-home/.openclaw
+
+          memory_vault_path="$(awk -F= '$1 == "OPENCLAW_MEMORY_VAULT_PATH" {print substr($0, index($0, $2))}' .env | tail -n 1 | sed -e 's/^"//' -e 's/"$//')"
+          if [ -n "${memory_vault_path}" ]; then
+            mkdir -p "${memory_vault_path}/memory/wishlists" "${memory_vault_path}/memory/receipts"
+            if ! git -C "${memory_vault_path}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+              git -C "${memory_vault_path}" init
+            fi
+            git -C "${memory_vault_path}" config user.name "OpenClaw Memory"
+            git -C "${memory_vault_path}" config user.email "openclaw-memory@local"
+          fi
 
           if [ -f config/openclaw.config.json ]; then
             cp config/openclaw.config.json .openclaw-home/.openclaw/openclaw.json

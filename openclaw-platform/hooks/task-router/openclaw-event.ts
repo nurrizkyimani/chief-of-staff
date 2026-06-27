@@ -66,16 +66,43 @@ export function pushMessage(event: any, text: string): void {
 
 export function pickChatId(event: any): string {
   const metadata = event?.context?.metadata ?? {};
+  const context = event?.context ?? {};
+  const channelHint = String(
+    metadata.platform ??
+      metadata.provider ??
+      metadata.channelId ??
+      context.channelId ??
+      event?.messageProvider ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (channelHint.includes("whatsapp")) {
+    return String(
+      metadata.groupId ??
+        context.groupId ??
+        metadata.conversationId ??
+        context.conversationId ??
+        metadata.chatId ??
+        context.chatId ??
+        metadata.channelId ??
+        context.channelId ??
+        event?.sessionKey ??
+        "unknown-chat"
+    );
+  }
+
   return String(
     metadata.chatId ??
       metadata.conversationId ??
-      event?.context?.conversationId ??
-      event?.context?.senderId ??
-      event?.context?.groupId ??
+      context.conversationId ??
+      context.senderId ??
+      context.groupId ??
       metadata.channelId ??
-      event?.context?.channelId ??
-      event?.context?.from?.id ??
-      event?.context?.from ??
+      context.channelId ??
+      context.from?.id ??
+      context.from ??
       event?.sessionKey ??
       "unknown-chat"
   );

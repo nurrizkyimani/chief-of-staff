@@ -19,6 +19,9 @@ function changed(content: string, text: string): string {
 
 {
   assert.deepEqual(parseWishlistCommand("show ykc"), { kind: "show", board: "ykc" });
+  assert.deepEqual(parseWishlistCommand("@258420313690159 show ykc"), { kind: "show", board: "ykc" });
+  assert.deepEqual(parseWishlistCommand("@~imn-claw show ykc"), { kind: "show", board: "ykc" });
+  assert.deepEqual(parseWishlistCommand("@native-whatsapp-token show ykc"), { kind: "show", board: "ykc" });
   assert.deepEqual(parseWishlistCommand("show ykc wish"), { kind: "show", board: "ykc" });
   assert.deepEqual(parseWishlistCommand("show ykc-wishlist"), { kind: "show", board: "ykc" });
   assert.deepEqual(parseWishlistCommand("show jkt june"), { kind: "show", board: "jkt", section: "JUNE" });
@@ -28,6 +31,18 @@ function changed(content: string, text: string): string {
     board: "ykc",
     section: "LOCAL FOOD",
     item: "rumah makan godean, godean"
+  });
+  assert.deepEqual(parseWishlistCommand("@258420313690159 add ykc activity: viavia bakery"), {
+    kind: "add",
+    board: "ykc",
+    section: "ACTIVITY",
+    item: "viavia bakery"
+  });
+  assert.deepEqual(parseWishlistCommand("@native-whatsapp-token add ykc activity: gudeg 2"), {
+    kind: "add",
+    board: "ykc",
+    section: "ACTIVITY",
+    item: "gudeg 2"
   });
   assert.deepEqual(parseWishlistCommand("add jkt june w2: rumah makan godean"), {
     kind: "add",
