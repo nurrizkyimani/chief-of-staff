@@ -7,6 +7,7 @@ const MODELHEALTH_COMMAND_RE = /^\/modelhealth(?:\s|$)/i;
 const CONFIRMATION_RE =
   /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+)$/i;
 const NO_REPLY_RE = /^NO_REPLY$/i;
+const MD_BOT_REPLY_RE = /^\[md-bot\]\s+/i;
 const MEDIA_PLACEHOLDER_RE = /^<media:[^>]+>(?:\s*\([^)]*\))?$/i;
 
 function textFrom(value) {
@@ -80,12 +81,64 @@ function shouldSilence(event) {
   return null;
 }
 
+function syntheticTaskReply(event) {
+  const messageCandidates = Array.isArray(event?.messages)
+    ? event.messages.map(textFrom).filter(Boolean)
+    : [];
+  return messageCandidates.find((candidate) => MD_BOT_REPLY_RE.test(candidate)) ?? null;
+}
+
+function deterministicReplyInstruction(text) {
+  return [
+    "A deterministic local task already handled this message.",
+    "Your complete final answer must be exactly the text inside <exact_reply>.",
+    "Do not paraphrase, summarize, translate, add, remove, or reformat anything.",
+    "",
+    "<exact_reply>",
+    text,
+    "</exact_reply>"
+  ].join("\n");
+}
+
 export default definePluginEntry({
   id: "task-gate",
   name: "Task Gate",
   description: "Suppresses default model replies for deterministic task commands.",
   register(api) {
+    api.on("before_prompt_build", (event, ctx) => {
+      const syntheticReply = syntheticTaskReply(event);
+      if (!syntheticReply) return;
+
+      api.logger.info("enforcing deterministic task reply prompt", {
+        channelId: ctx.channelId,
+        messageProvider: ctx.messageProvider,
+        sessionKey: ctx.sessionKey
+      });
+
+      return {
+        prependSystemContext: deterministicReplyInstruction(syntheticReply),
+        prependContext: deterministicReplyInstruction(syntheticReply)
+      };
+    });
+
     api.on("before_agent_reply", (event, ctx) => {
+      const syntheticReply = syntheticTaskReply(event);
+      if (syntheticReply) {
+        api.logger.info("using deterministic task reply", {
+          channelId: ctx.channelId,
+          messageProvider: ctx.messageProvider,
+          sessionKey: ctx.sessionKey
+        });
+
+        return {
+          handled: true,
+          reason: "deterministic_task_reply",
+          reply: {
+            text: syntheticReply
+          }
+        };
+      }
+
       const reason = shouldSilence(event);
       if (!reason) return;
 

@@ -32,17 +32,17 @@ function changed(content: string, text: string): string {
     section: "LOCAL FOOD",
     item: "rumah makan godean, godean"
   });
-  assert.deepEqual(parseWishlistCommand("@258420313690159 add ykc activity: viavia bakery"), {
+  assert.deepEqual(parseWishlistCommand("@258420313690159 add ykc activity: gudeg 4"), {
     kind: "add",
     board: "ykc",
     section: "ACTIVITY",
-    item: "viavia bakery"
+    item: "gudeg 4"
   });
-  assert.deepEqual(parseWishlistCommand("@native-whatsapp-token add ykc activity: gudeg 2"), {
+  assert.deepEqual(parseWishlistCommand("@native-whatsapp-token add ykc activity: gudeg 5"), {
     kind: "add",
     board: "ykc",
     section: "ACTIVITY",
-    item: "gudeg 2"
+    item: "gudeg 5"
   });
   assert.deepEqual(parseWishlistCommand("add jkt june w2: rumah makan godean"), {
     kind: "add",
@@ -149,6 +149,7 @@ bakmi anything, jakbar, jaksel`)!;
 {
   const trigger = detectTaskTrigger("show ykc", false);
   assert.equal(trigger.kind, "wishlist-assistant");
+  assert.equal(detectTaskTrigger("@258420313690159 add ykc activity: gudeg 4", false).kind, "wishlist-assistant");
   assert.deepEqual(detectTaskTrigger("done lunch", false), { kind: "unhandled" });
 }
 
