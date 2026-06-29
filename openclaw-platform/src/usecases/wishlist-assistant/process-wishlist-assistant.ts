@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { env } from "../../config/env.js";
 import { commitMemoryVaultFile, type MemoryVaultGitResult } from "../../integrations/memory/git-memory-vault.js";
+import { classifyWishlistCommandWithModel } from "./classify-wishlist-command.js";
 import { applyWishlistCommand, parseWishlistCommand } from "./wishlist-markdown.js";
 
 export type WishlistAssistantInput = {
@@ -25,8 +26,27 @@ export async function processWishlistAssistant(input: WishlistAssistantInput): P
     };
   }
 
-  const command = parseWishlistCommand(input.text);
+  let command = parseWishlistCommand(input.text);
+  if (!command && shouldAskModelToClassify(input.text)) {
+    try {
+      command = await classifyWishlistCommandWithModel(input.text);
+    } catch (error) {
+      return {
+        messages: [mdBotReply(`Wishlist command not recognized. Model classifier failed (${formatErrorMessage(error)}).`)]
+      };
+    }
+  }
+
   if (!command) {
+    if (looksLikeInvisibleReference(input.text)) {
+      return {
+        messages: [
+          mdBotReply(
+            "I can save pasted text, but I cannot read the WhatsApp quoted bubble in this controlled path yet. Paste the list in the same message, then say `add this into action list`."
+          )
+        ]
+      };
+    }
     return { messages: [mdBotReply("Wishlist command not recognized. Use show, add, done, or undone.")] };
   }
 
@@ -61,6 +81,14 @@ export async function processWishlistAssistant(input: WishlistAssistantInput): P
   return {
     messages: [mdBotReply(formatSavedMessage(result.message, gitResult))]
   };
+}
+
+function shouldAskModelToClassify(text: string): boolean {
+  return /\b(?:wishlist|wish|backlog|list|show|add|save|store|put|import|done|undone|mark|ykc|jkt|action)\b/i.test(text);
+}
+
+function looksLikeInvisibleReference(text: string): boolean {
+  return /\b(?:add|save|store|put|import)\b/i.test(text) && /\b(?:this|these|that|all)\b/i.test(text);
 }
 
 function isAllowedWishlistGroup(sourcePlatform: string, chatId: string): boolean {

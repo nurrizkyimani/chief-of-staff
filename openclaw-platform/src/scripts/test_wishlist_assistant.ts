@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { coerceWishlistModelAction } from "../usecases/wishlist-assistant/classify-wishlist-command.js";
 import { applyWishlistCommand, parseWishlistCommand } from "../usecases/wishlist-assistant/wishlist-markdown.js";
 import { detectTaskTrigger } from "../task-router/task-trigger.detector.js";
 
@@ -89,7 +90,55 @@ play with alvin/shaqi`);
 }
 
 {
+  const command = parseWishlistCommand(`ACTION LIST
+
+APR
+W1 - tiket balik pergi yk`);
+  assert.deepEqual(command, {
+    kind: "import",
+    board: "action",
+    content: "ACTION LIST\n\nAPR\nW1 - tiket balik pergi yk"
+  });
+}
+
+{
   assert.equal(parseWishlistCommand("hello"), null);
+}
+
+{
+  assert.deepEqual(
+    coerceWishlistModelAction({ action: "add", board: "ykc", section: "activity", item: "gudeg 8" }, "anything"),
+    { kind: "add", board: "ykc", section: "ACTIVITY", item: "gudeg 8" }
+  );
+}
+
+{
+  assert.deepEqual(
+    coerceWishlistModelAction(
+      { action: "import", board: "action" },
+      `@258420313690159 save all of these into action list
+
+ACTION LIST
+
+APR
+W1 - tiket balik pergi yk`
+    ),
+    {
+      kind: "import",
+      board: "action",
+      content: "ACTION LIST\n\nAPR\nW1 - tiket balik pergi yk"
+    }
+  );
+}
+
+{
+  const command = parseWishlistCommand(`ACTION LIST
+
+APR
+W1 - tiket balik pergi yk`)!;
+  const result = applyWishlistCommand("", command);
+  assert.equal(result.status, "changed");
+  assert.match(result.content, /^# ACTION WISHLIST\n\n## APR\nW1 - tiket balik pergi yk\n$/);
 }
 
 {
