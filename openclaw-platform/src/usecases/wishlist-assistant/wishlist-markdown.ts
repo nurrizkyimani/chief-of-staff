@@ -457,7 +457,7 @@ function normalizeBoard(value: string): WishlistBoardKey | null {
 function boardFromTitle(title: string): WishlistBoardKey | null {
   const normalized = normalizeHeading(title);
   if (normalized === "WISHLIST" || normalized === "BACKLOG") return null;
-  return normalizeBoardKey(normalized.replace(/\s+(?:WISHLIST|BACKLOG)$/i, ""));
+  return normalizeBoardKey(normalized.replace(/\s+(?:WISHLIST|BACKLOG|LIST)$/i, ""));
 }
 
 function boardTitle(board: WishlistBoardKey): string {
@@ -570,6 +570,6 @@ function detectImportBoard(text: string): WishlistBoardKey | null {
   if (!firstMeaningfulLine) return null;
   if (/^(?:show|add|done|undone)\b/i.test(firstMeaningfulLine)) return null;
   const normalized = normalizeHeading(firstMeaningfulLine);
-  if (!/\s(?:WISHLIST|BACKLOG)$/i.test(normalized)) return null;
+  if (!/\s(?:WISHLIST|BACKLOG|LIST)$/i.test(normalized)) return null;
   return boardFromTitle(firstMeaningfulLine);
 }

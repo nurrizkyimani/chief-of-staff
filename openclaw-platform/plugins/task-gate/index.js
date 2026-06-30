@@ -1,4 +1,5 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { processWishlistAssistant } from "../../dist/usecases/wishlist-assistant/process-wishlist-assistant.js";
 
 const RECEIPT_COMMAND_RE = /^\/receipt(?:@\w+)?(?:\s|$)/i;
 const INCOME_COMMAND_RE = /^\/income(?:@\w+)?(?:\s|$)/i;
@@ -100,11 +101,74 @@ function deterministicReplyInstruction(text) {
   ].join("\n");
 }
 
+function whatsappGroupIdFrom(event, ctx) {
+  const candidates = [
+    ctx?.conversationId,
+    event?.conversationId,
+    event?.sessionKey,
+    ctx?.sessionKey
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const raw = String(candidate).trim();
+    const group = raw.match(/(\d+@g\.us)/i)?.[1];
+    if (group) return group;
+  }
+
+  return "";
+}
+
+function dispatchTextFrom(event) {
+  return textFrom(event?.body) || textFrom(event?.content);
+}
+
+function looksPossiblyWishlistRequest(text) {
+  return /\b(?:wishlist|wish|backlog|list|show|add|save|store|put|import|done|undone|mark|ykc|jkt|action)\b/i.test(
+    text
+  );
+}
+
+function envBool(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  return ["1", "true", "yes", "on"].includes(String(raw).trim().toLowerCase());
+}
+
 export default definePluginEntry({
   id: "task-gate",
   name: "Task Gate",
   description: "Suppresses default model replies for deterministic task commands.",
   register(api) {
+    api.on("before_dispatch", async (event, ctx) => {
+      if (!envBool("WISHLIST_EXACT_DISPATCH", true)) return;
+      if (event?.channel !== "whatsapp" && ctx?.channelId !== "whatsapp") return;
+
+      const chatId = whatsappGroupIdFrom(event, ctx);
+      if (!event?.isGroup && !chatId) return;
+      const text = dispatchTextFrom(event);
+      if (!chatId || !text || NO_REPLY_RE.test(text)) return;
+      if (!looksPossiblyWishlistRequest(text)) return;
+
+      const result = await processWishlistAssistant({
+        text,
+        sourcePlatform: "whatsapp",
+        chatId
+      });
+      const replyText = result.messages.join("\n\n").trim();
+      if (!replyText || !MD_BOT_REPLY_RE.test(replyText)) return;
+
+      api.logger.info("handled wishlist before dispatch", {
+        channelId: ctx.channelId,
+        conversationId: ctx.conversationId,
+        sessionKey: ctx.sessionKey
+      });
+
+      return {
+        handled: true,
+        text: replyText
+      };
+    });
+
     api.on("before_prompt_build", (event, ctx) => {
       const syntheticReply = syntheticTaskReply(event);
       if (!syntheticReply) return;
