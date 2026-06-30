@@ -317,6 +317,13 @@ done ykc rumah makan godean
 undone ykc rumah makan godean
 ```
 
+In `hybrid` or `tool` mode, wishlist-like messages also receive the quoted
+WhatsApp bubble text, when OpenClaw exposes it, plus the current
+`backlog-wishlist.md` content as read-only model context. The model can use
+that context to call the narrow `wishlist_update` tool for fuzzy requests such
+as `mark remote kipas done` or `add this into action list`; the tool still
+writes and commits only the configured wishlist Markdown file.
+
 Pasting a full block that starts with a board title such as `YKC WISHLIST`,
 `!!! JKT WISHLIST !!!`, or `FRIENDSHIP BACKLOG` imports/upserts that board.
 Pending lines stay plain text; done lines are normalized to `DN item`. Wishlist

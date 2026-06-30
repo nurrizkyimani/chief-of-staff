@@ -153,6 +153,44 @@ W1 - tiket balik pergi yk`
 }
 
 {
+  assert.deepEqual(
+    coerceWishlistModelAction(
+      {
+        action: "import",
+        board: "buy",
+        content: `BUY WISHLIST
+
+MX
+w4 remote kipas`
+      },
+      `USER_MESSAGE:
+@claw add this into buy list
+
+---
+
+QUOTED_WHATSAPP_MESSAGE:
+BUY WISHLIST
+
+MX
+w4 remote kipas
+
+---
+
+CURRENT_WISHLIST_MARKDOWN:
+# ACTION LIST
+
+## APR
+DN w1 - tiket balik pergi yk`
+    ),
+    {
+      kind: "import",
+      board: "buy",
+      content: "BUY WISHLIST\n\nMX\nw4 remote kipas"
+    }
+  );
+}
+
+{
   const command = parseWishlistCommand(`ACTION LIST
 
 APR

@@ -1,5 +1,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "@sinclair/typebox";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   processWishlistAssistant,
   processWishlistToolAction
@@ -126,6 +128,104 @@ function dispatchTextFrom(event) {
   return textFrom(event?.body) || textFrom(event?.content);
 }
 
+function wishlistFilePath() {
+  const explicit = textFrom(process.env.WISHLIST_FILE_PATH);
+  if (explicit) return explicit;
+  const vaultPath = textFrom(process.env.OPENCLAW_MEMORY_VAULT_PATH);
+  return vaultPath ? join(vaultPath, "memory", "wishlists", "backlog-wishlist.md") : "";
+}
+
+function readWishlistContent() {
+  const filePath = wishlistFilePath();
+  if (!filePath) return "";
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return "";
+    return "";
+  }
+}
+
+function compactContextText(value, maxChars = 30000) {
+  const text = textFrom(value);
+  if (text.length <= maxChars) return text;
+  return `[truncated: showing last ${maxChars} chars]\n${text.slice(-maxChars)}`;
+}
+
+function messageTextFrom(value, depth = 0, seen = new WeakSet()) {
+  if (!value || depth > 6) return "";
+  if (typeof value === "string") return textFrom(value);
+  if (typeof value !== "object") return "";
+  if (seen.has(value)) return "";
+  seen.add(value);
+
+  const direct = [
+    value.text,
+    value.body,
+    value.content,
+    value.caption,
+    value.conversation,
+    value.extendedTextMessage?.text,
+    value.imageMessage?.caption,
+    value.videoMessage?.caption,
+    value.documentMessage?.caption,
+    value.buttonsResponseMessage?.selectedDisplayText,
+    value.listResponseMessage?.title
+  ].map(textFrom).find(Boolean);
+  if (direct) return direct;
+
+  for (const candidate of Object.values(value)) {
+    const nested = messageTextFrom(candidate, depth + 1, seen);
+    if (nested) return nested;
+  }
+
+  return "";
+}
+
+function findQuotedTextDeep(value, depth = 0, seen = new WeakSet()) {
+  if (!value || typeof value !== "object" || depth > 7) return "";
+  if (seen.has(value)) return "";
+  seen.add(value);
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (/quoted|reply|contextInfo/i.test(key)) {
+      const text = messageTextFrom(nestedValue, depth + 1, seen);
+      if (text) return text;
+    }
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const text = findQuotedTextDeep(nestedValue, depth + 1, seen);
+    if (text) return text;
+  }
+
+  return "";
+}
+
+function quotedTextFrom(event) {
+  const candidates = [
+    event?.quotedText,
+    event?.quotedBody,
+    event?.quotedMessage,
+    event?.replyTo,
+    event?.context?.quotedText,
+    event?.context?.quotedBody,
+    event?.context?.quotedMessage,
+    event?.context?.replyTo,
+    event?.context?.metadata?.quotedText,
+    event?.context?.metadata?.quotedBody,
+    event?.context?.metadata?.quotedMessage,
+    event?.context?.metadata?.replyTo,
+    event?.context?.raw?.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+    event?.context?.rawMessage?.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+    event?.raw?.message?.extendedTextMessage?.contextInfo?.quotedMessage,
+    event?.rawMessage?.message?.extendedTextMessage?.contextInfo?.quotedMessage
+  ];
+
+  const direct = candidates.map(messageTextFrom).find(Boolean);
+  return direct || findQuotedTextDeep(event);
+}
+
 function looksPossiblyWishlistRequest(text) {
   return /\b(?:wishlist|wish|backlog|list|show|add|save|store|put|import|done|undone|mark|ykc|jkt|action)\b/i.test(
     text
@@ -195,8 +295,34 @@ function wishlistToolInstruction() {
     "Do not create ykc.md, action.md, wishlist.md, or other wishlist files in the workspace root.",
     "Use wishlist_update for show, add, done, undone, and import requests related to wishlist/backlog/list memory.",
     "The tool is the only allowed writer for openclaw-obsidian-vault/memory/wishlists/backlog-wishlist.md.",
+    "When the user refers to a quoted WhatsApp bubble, use the quoted text below as source context.",
+    "When the user asks to mark/change/edit an existing item, compare against the current Markdown below before calling the tool.",
     "After the tool returns, keep your final answer short and preserve any [md-bot] result text from the tool."
   ].join("\n");
+}
+
+function wishlistPromptContext(event) {
+  const quotedText = quotedTextFrom(event);
+  const wishlistContent = readWishlistContent();
+  const blocks = [];
+
+  if (quotedText) {
+    blocks.push([
+      "Quoted WhatsApp message, if the current user message refers to `this`, `that`, or a replied bubble:",
+      "<quoted_whatsapp_message>",
+      compactContextText(quotedText, 12000),
+      "</quoted_whatsapp_message>"
+    ].join("\n"));
+  }
+
+  blocks.push([
+    "Current canonical wishlist Markdown. This is read-only context for you; write changes only through wishlist_update:",
+    "<current_wishlist_markdown>",
+    compactContextText(wishlistContent || "(empty)", 30000),
+    "</current_wishlist_markdown>"
+  ].join("\n"));
+
+  return blocks.join("\n\n");
 }
 
 export default definePluginEntry({
@@ -232,6 +358,9 @@ export default definePluginEntry({
           content: Type.Optional(Type.String({
             description: "Full pasted list content for import."
           })),
+          quoted_text: Type.Optional(Type.String({
+            description: "Quoted WhatsApp bubble text when the user replied to an existing list/message."
+          })),
           chat_id: Type.Optional(Type.String({
             description: "WhatsApp group id if known, for example 120363416177839839@g.us."
           }))
@@ -247,6 +376,7 @@ export default definePluginEntry({
             items: Array.isArray(params.items) ? params.items.filter((item) => typeof item === "string") : undefined,
             query: typeof params.query === "string" ? params.query : undefined,
             content: typeof params.content === "string" ? params.content : undefined,
+            quotedText: typeof params.quoted_text === "string" ? params.quoted_text : undefined,
             sourcePlatform,
             chatId
           });
@@ -269,11 +399,15 @@ export default definePluginEntry({
       const text = dispatchTextFrom(event);
       if (!chatId || !text || NO_REPLY_RE.test(text)) return;
       if (!looksPossiblyWishlistRequest(text)) return;
+      const quotedText = quotedTextFrom(event);
+      const wishlistContent = readWishlistContent();
 
       const result = await processWishlistAssistant({
         text,
         sourcePlatform: "whatsapp",
         chatId,
+        quotedText,
+        wishlistContent,
         deterministicOnly: wishlistMode() === "hybrid",
         quietUnrecognized: wishlistMode() === "hybrid"
       });
@@ -321,12 +455,14 @@ export default definePluginEntry({
         api.logger.info("adding wishlist tool instruction", {
           channelId: ctx.channelId,
           messageProvider: ctx.messageProvider,
-          sessionKey: ctx.sessionKey
+          sessionKey: ctx.sessionKey,
+          hasQuotedText: Boolean(quotedTextFrom(event))
         });
 
+        const instruction = `${wishlistToolInstruction()}\n\n${wishlistPromptContext(event)}`;
         return {
-          prependSystemContext: wishlistToolInstruction(),
-          prependContext: wishlistToolInstruction()
+          prependSystemContext: instruction,
+          prependContext: instruction
         };
       }
     });

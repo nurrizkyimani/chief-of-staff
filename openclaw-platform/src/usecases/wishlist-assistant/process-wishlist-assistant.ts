@@ -9,6 +9,8 @@ export type WishlistAssistantInput = {
   text: string;
   sourcePlatform: string;
   chatId: string;
+  quotedText?: string;
+  wishlistContent?: string;
   deterministicOnly?: boolean;
   quietUnrecognized?: boolean;
 };
@@ -25,6 +27,7 @@ export type WishlistToolActionInput = {
   items?: string[];
   query?: string;
   content?: string;
+  quotedText?: string;
   sourcePlatform: string;
   chatId: string;
 };
@@ -36,7 +39,7 @@ export async function processWishlistAssistant(input: WishlistAssistantInput): P
   let command = parseWishlistCommand(input.text);
   if (!command && !input.deterministicOnly && shouldAskModelToClassify(input.text)) {
     try {
-      command = await classifyWishlistCommandWithModel(input.text);
+      command = await classifyWishlistCommandWithModel(formatClassifierInput(input));
     } catch (error) {
       return {
         messages: [mdBotReply(`Wishlist command not recognized. Model classifier failed (${formatErrorMessage(error)}).`)]
@@ -46,7 +49,7 @@ export async function processWishlistAssistant(input: WishlistAssistantInput): P
 
   if (!command) {
     if (input.quietUnrecognized) return { messages: [] };
-    if (looksLikeInvisibleReference(input.text)) {
+    if (looksLikeInvisibleReference(input.text) && !input.quotedText) {
       return {
         messages: [
           mdBotReply(
@@ -178,11 +181,22 @@ function wishlistCommandFromToolAction(input: WishlistToolActionInput): Wishlist
       return { kind: input.action, board, query };
     }
     case "import": {
-      const content = normalizeOptional(input.content);
+      const content = normalizeOptional(input.content) ?? normalizeOptional(input.quotedText);
       if (!content) return null;
       return { kind: "import", board, content };
     }
   }
+}
+
+function formatClassifierInput(input: WishlistAssistantInput): string {
+  const parts = [`USER_MESSAGE:\n${input.text.trim()}`];
+  if (input.quotedText?.trim()) {
+    parts.push(`QUOTED_WHATSAPP_MESSAGE:\n${input.quotedText.trim()}`);
+  }
+  if (input.wishlistContent?.trim()) {
+    parts.push(`CURRENT_WISHLIST_MARKDOWN:\n${input.wishlistContent.trim()}`);
+  }
+  return parts.join("\n\n---\n\n");
 }
 
 function normalizeBoard(value: string): string {
