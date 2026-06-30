@@ -6,6 +6,11 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { coerceWishlistModelAction } from "../usecases/wishlist-assistant/classify-wishlist-command.js";
 import { applyWishlistCommand, parseWishlistCommand } from "../usecases/wishlist-assistant/wishlist-markdown.js";
+import {
+  resolveWishlistMode,
+  wishlistModeUsesDeterministic,
+  wishlistModeUsesTool
+} from "../usecases/wishlist-assistant/wishlist-mode.js";
 import { detectTaskTrigger } from "../task-router/task-trigger.detector.js";
 
 const execFileAsync = promisify(execFile);
@@ -16,6 +21,22 @@ function changed(content: string, text: string): string {
   const result = applyWishlistCommand(content, command);
   assert.equal(result.status, "changed");
   return result.content;
+}
+
+{
+  assert.equal(resolveWishlistMode("deterministic"), "deterministic");
+  assert.equal(resolveWishlistMode("tool"), "tool");
+  assert.equal(resolveWishlistMode("hybrid"), "hybrid");
+  assert.equal(resolveWishlistMode("legacy"), "legacy");
+  assert.equal(resolveWishlistMode("wat"), "deterministic");
+  assert.equal(wishlistModeUsesDeterministic("deterministic"), true);
+  assert.equal(wishlistModeUsesDeterministic("hybrid"), true);
+  assert.equal(wishlistModeUsesDeterministic("tool"), false);
+  assert.equal(wishlistModeUsesDeterministic("legacy"), false);
+  assert.equal(wishlistModeUsesTool("tool"), true);
+  assert.equal(wishlistModeUsesTool("hybrid"), true);
+  assert.equal(wishlistModeUsesTool("deterministic"), false);
+  assert.equal(wishlistModeUsesTool("legacy"), false);
 }
 
 {
