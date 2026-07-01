@@ -1,5 +1,6 @@
 import { env } from "../../config/env.js";
 import { formatReceiptConfirmationPreview } from "../../domains/receipts/receipt-formatting.js";
+import { getReceiptPaymentMethods } from "../../domains/receipts/receipt-payment-method.js";
 import { buildReceiptPayload, type BuildReceiptPayloadInput } from "./build-receipt-payload.js";
 import { savePendingConfirmation } from "./receipt-confirmation-store.js";
 
@@ -10,6 +11,8 @@ export type ReceiptConfirmationRequest = {
   totalMedia: number;
   pageNumber: number;
   totalPages: number;
+  paymentMethod: string;
+  paymentMethodOptions: string[];
 };
 
 export async function parseAndQueueReceiptConfirmation(
@@ -36,6 +39,8 @@ export async function parseAndQueueReceiptConfirmation(
     mediaIndex,
     totalMedia,
     pageNumber,
-    totalPages
+    totalPages,
+    paymentMethod: payload.payment_method,
+    paymentMethodOptions: getReceiptPaymentMethods()
   };
 }

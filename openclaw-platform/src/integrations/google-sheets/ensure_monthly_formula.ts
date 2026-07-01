@@ -2,7 +2,7 @@ import { env } from "../../config/env.js";
 import { createSheetsClient } from "./sheets_client.js";
 import { ReceiptError, getErrorStatus } from "../../errors/receipt_errors.js";
 
-const formula = `=QUERY({ARRAYFORMULA(IF(${env.RECEIPT_SHEET_RAW}!D2:D<>"",TEXT(${env.RECEIPT_SHEET_RAW}!D2:D,"yyyy-mm"),)),${env.RECEIPT_SHEET_RAW}!G2:G,${env.RECEIPT_SHEET_RAW}!E2:E,${env.RECEIPT_SHEET_RAW}!F2:F,${env.RECEIPT_SHEET_RAW}!A2:A},"select Col1, Col2, sum(Col3), sum(Col4), count(Col5) where Col1 is not null group by Col1, Col2 label Col1 'month', Col2 'classification', sum(Col3) 'total_amount', sum(Col4) 'total_tax', count(Col5) 'receipt_count'",0)`;
+const formula = `=QUERY({ARRAYFORMULA(IF(${env.RECEIPT_SHEET_RAW}!D2:D<>"",TEXT(${env.RECEIPT_SHEET_RAW}!D2:D,"yyyy-mm"),)),${env.RECEIPT_SHEET_RAW}!H2:H,${env.RECEIPT_SHEET_RAW}!E2:E,${env.RECEIPT_SHEET_RAW}!F2:F,${env.RECEIPT_SHEET_RAW}!A2:A},"select Col1, Col2, sum(Col3), sum(Col4), count(Col5) where Col1 is not null group by Col1, Col2 label Col1 'month', Col2 'classification', sum(Col3) 'total_amount', sum(Col4) 'total_tax', count(Col5) 'receipt_count'",0)`;
 
 export async function ensureMonthlyBreakdownFormula(): Promise<void> {
   try {

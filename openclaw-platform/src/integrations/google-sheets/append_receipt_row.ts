@@ -13,6 +13,7 @@ function toReceiptsRawRow(payload: ReceiptPayload): (string | number | boolean)[
     payload.receipt_date,
     payload.total_amount,
     payload.tax_amount,
+    payload.payment_method,
     payload.classification,
     payload.currency,
     payload.confidence,
@@ -49,7 +50,7 @@ export async function appendReceiptsRawRow(payload: ReceiptPayload): Promise<App
     const sheets = createSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: env.RECEIPT_SPREADSHEET_ID,
-      range: `${env.RECEIPT_SHEET_RAW}!A:M`,
+      range: `${env.RECEIPT_SHEET_RAW}!A:N`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
         majorDimension: "ROWS",

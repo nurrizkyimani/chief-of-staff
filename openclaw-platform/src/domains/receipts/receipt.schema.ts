@@ -14,6 +14,7 @@ export const ReceiptPayloadSchema = z.object({
   receipt_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   total_amount: z.number(),
   tax_amount: z.number(),
+  payment_method: z.string().default(""),
   tax_label_raw: z.string().default(""),
   classification: z.enum(receiptClassifications),
   currency: z.string().default("IDR"),

@@ -3,6 +3,7 @@ import {
   type ClassificationDecision
 } from "../../domains/receipts/receipt-classification.js";
 import { buildMonthKey, normalizeReceiptDate } from "../../domains/receipts/receipt-date.js";
+import { resolveReceiptPaymentMethod } from "../../domains/receipts/receipt-payment-method.js";
 import type { ReceiptPayload } from "../../domains/receipts/receipt.schema.js";
 import { validateReceiptV11 } from "../../domains/receipts/receipt.schema.js";
 import { readReceiptImage } from "./read-receipt-image.js";
@@ -44,6 +45,10 @@ export async function buildReceiptPayload(input: BuildReceiptPayloadInput): Prom
       : classificationDecision.finalClassification === "income"
         ? "fallback"
         : classificationDecision.classificationSource;
+  const paymentMethodDecision = resolveReceiptPaymentMethod({
+    captionText: input.captionText,
+    ocrText: candidate.raw_text
+  });
 
   return validateReceiptV11({
     schema_version: "receipt.v1.1",
@@ -58,6 +63,7 @@ export async function buildReceiptPayload(input: BuildReceiptPayloadInput): Prom
     receipt_date: receiptDate,
     total_amount: candidate.total_amount,
     tax_amount: candidate.tax_amount,
+    payment_method: paymentMethodDecision.paymentMethod,
     tax_label_raw: candidate.tax_label_raw,
     classification: finalClassification,
     currency: "IDR",
@@ -73,6 +79,10 @@ export async function buildReceiptPayload(input: BuildReceiptPayloadInput): Prom
       intent,
       intent_source: input.intentSource ?? "media_default",
       ...(input.captionText ? { caption_text: input.captionText } : {}),
+      payment_method_source: paymentMethodDecision.source,
+      ...(paymentMethodDecision.matchedAlias
+        ? { payment_method_matched_alias: paymentMethodDecision.matchedAlias }
+        : {}),
       model_classification: classificationDecision.modelClassification,
       final_classification: finalClassification,
       classification_source: classificationSource,

@@ -12,8 +12,15 @@ export type TaskRouterInput = {
 export type TaskConfirmation = {
   token: string;
   previewText: string;
+  paymentMethod: string;
+  paymentMethodOptions: string[];
   confirmCommand: string;
   rejectCommand: string;
+  methodCommands: Array<{
+    paymentMethod: string;
+    command: string;
+    callbackData: string;
+  }>;
   confirmCallbackData: string;
   rejectCallbackData: string;
 };

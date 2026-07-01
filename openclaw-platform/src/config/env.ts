@@ -29,6 +29,13 @@ const EnvSchema = z.object({
   RECEIPT_SAVE_JOURNAL: BoolLikeSchema.default(true),
   RECEIPT_SAVE_SHEETS: BoolLikeSchema.default(true),
   RECEIPT_CONFIRMATION_TTL_MS: z.coerce.number().int().min(1).default(30 * 60 * 1000),
+  RECEIPT_PAYMENT_METHODS: z.string().default("cc-bca,db-bca,cc-bri,db-jago,db-cash,bca,cc-jenius,cash"),
+  RECEIPT_PAYMENT_METHOD_ALIASES: z
+    .string()
+    .default(
+      "cc-bca=cc bca|credit bca|kartu kredit bca;db-bca=db bca|debit bca;cc-bri=cc bri|credit bri;db-jago=db jago|debit jago|jago;db-cash=db cash|debit cash;cc-jenius=cc jeni|cc jenius;cash=cash|tunai"
+    ),
+  RECEIPT_PAYMENT_AMBIGUOUS_ALIASES: z.string().default("bca|edc bca|bank bca"),
   NODE_ENV: z.string().default("development"),
   OPENCLAW_HOME: z.string().optional(),
   OPENCLAW_MEMORY_VAULT_PATH: z.string().min(1).optional(),

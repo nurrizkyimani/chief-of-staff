@@ -13,6 +13,7 @@ const sample = {
   receipt_date: "2026-04-07",
   total_amount: 25000,
   tax_amount: 2500,
+  payment_method: "cc-bca",
   tax_label_raw: "PPN",
   classification: "groceries",
   currency: "IDR",
