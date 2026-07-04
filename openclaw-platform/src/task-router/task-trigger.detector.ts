@@ -31,6 +31,14 @@ export type TaskTrigger =
       source: "cicilan_confirmation";
     }
   | {
+      kind: "wealth-assistant";
+      source: "wealth_text" | "wealth_media";
+    }
+  | {
+      kind: "wealth-confirmation";
+      source: "wealth_confirmation";
+    }
+  | {
       kind: "model-health";
       source: "modelhealth_command";
     }
@@ -61,10 +69,13 @@ const GYM_COMMAND_PATTERN = /(^|\s)\/gym(?:@\w+)?(?:\s|$)/i;
 const MODEL_HEALTH_COMMAND_PATTERN = /(^|\s)\/modelhealth(?:@\w+)?(?:\s|$)/i;
 const FINANCE_COMMAND_PATTERN = /(^|\s)\/finance(?:@\w+)?(?:\s|$)/i;
 const CICILAN_TRIGGER_PATTERN = /\b(?:cicil(?:an)?|installments?|paylater|spaylater|spl)\b/i;
+const WEALTH_TRIGGER_PATTERN = /(?:^|\s)(?:\/wealth(?:@\w+)?|wealth|net\s*worth|aset|asset|saldo|portfolio|portofolio)(?:\s|$)/i;
 const RECEIPT_CONFIRMATION_PATTERN =
   /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|receipt_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/receipt_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
 const CICILAN_CONFIRMATION_PATTERN =
   /^(?:callback_data:\s*)?(?:cicilan_(?:confirm|reject):[A-Za-z0-9_-]+|cicilan_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/cicilan_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/cicilan_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
+const WEALTH_CONFIRMATION_PATTERN =
+  /^(?:callback_data:\s*)?(?:wealth_(?:confirm|reject):[A-Za-z0-9_-]+|wealth_platform:[A-Za-z0-9_-]+:[a-z0-9_-]+|\/wealth_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/wealth_platform\s+[A-Za-z0-9_-]+\s+[a-z0-9_-]+)$/i;
 
 export function detectTaskTrigger(text: string, media: MediaKindHint): TaskTrigger {
   const mediaKind = normalizeMediaKind(media);
@@ -80,6 +91,9 @@ export function detectTaskTrigger(text: string, media: MediaKindHint): TaskTrigg
   if (CICILAN_CONFIRMATION_PATTERN.test(text)) {
     return { kind: "cicilan-confirmation", source: "cicilan_confirmation" };
   }
+  if (WEALTH_CONFIRMATION_PATTERN.test(text)) {
+    return { kind: "wealth-confirmation", source: "wealth_confirmation" };
+  }
 
   if (MODEL_HEALTH_COMMAND_PATTERN.test(text)) {
     return { kind: "model-health", source: "modelhealth_command" };
@@ -91,6 +105,9 @@ export function detectTaskTrigger(text: string, media: MediaKindHint): TaskTrigg
 
   if (CICILAN_TRIGGER_PATTERN.test(text)) {
     return { kind: "cicilan-assistant", source: "cicilan_text" };
+  }
+  if (WEALTH_TRIGGER_PATTERN.test(text)) {
+    return { kind: "wealth-assistant", source: hasMedia ? "wealth_media" : "wealth_text" };
   }
 
   const wishlistCommand = parseWishlistCommand(text);

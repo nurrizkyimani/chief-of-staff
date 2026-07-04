@@ -9,10 +9,16 @@ import {
 } from "../handlers/receipt-assistant/receipt-assistant.handler.js";
 import { modelHealthHandler } from "../handlers/model-health/model-health.handler.js";
 import { financeDigestHandler } from "../handlers/finance-digest/finance-digest.handler.js";
+import {
+  wealthAssistantHandler,
+  wealthConfirmationHandler
+} from "../handlers/wealth-assistant/wealth-assistant.handler.js";
 import { wishlistAssistantHandler } from "../handlers/wishlist-assistant/wishlist-assistant.handler.js";
 import type { TaskHandler } from "./task-handler.js";
 
 export const taskRegistry: TaskHandler[] = [
+  wealthAssistantHandler,
+  wealthConfirmationHandler,
   cicilanAssistantHandler,
   cicilanConfirmationHandler,
   receiptAssistantHandler,
