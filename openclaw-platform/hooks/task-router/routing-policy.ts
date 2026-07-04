@@ -103,7 +103,7 @@ export function resolveChannelPolicy(context: TaskRouterContext): ResolvedChanne
 export function shouldLetDefaultAgentHandle(context: TaskRouterContext, policy: ResolvedChannelPolicy): boolean {
   if (!policy.modules.includes("general-chat")) return false;
 
-  const trigger = detectTaskTrigger(context.text, context.mediaCandidates.length > 0);
+  const trigger = detectTaskTrigger(context.text, mediaKind(context));
   if (trigger.kind === "receipt-assistant" && trigger.source === "media_default") {
     return policy.media === "general-chat";
   }
@@ -112,7 +112,7 @@ export function shouldLetDefaultAgentHandle(context: TaskRouterContext, policy: 
 }
 
 export function shouldRunTaskModule(context: TaskRouterContext, policy: ResolvedChannelPolicy): boolean {
-  const trigger = detectTaskTrigger(context.text, context.mediaCandidates.length > 0);
+  const trigger = detectTaskTrigger(context.text, mediaKind(context));
 
   if (trigger.kind === "receipt-assistant" || trigger.kind === "receipt-confirmation") {
     return policy.modules.includes("receipt-parser") || policy.modules.includes("receipt-parser-v2");
@@ -145,9 +145,27 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
 
 export function shouldSuppressDefaultAgent(context: TaskRouterContext, policy: ResolvedChannelPolicy): boolean {
   if (shouldLetDefaultAgentHandle(context, policy)) return false;
-  const trigger = detectTaskTrigger(context.text, context.mediaCandidates.length > 0);
+  const trigger = detectTaskTrigger(context.text, mediaKind(context));
   if (trigger.kind === "wishlist-assistant" && context.sourcePlatform === "whatsapp") {
     return !useWishlistExactDispatch();
   }
-  return shouldGateDefaultAgentReply(context.text, context.mediaCandidates.length > 0) || !policy.modules.includes("general-chat");
+  return shouldGateDefaultAgentReply(context.text, mediaKind(context)) || !policy.modules.includes("general-chat");
+}
+
+function mediaKind(context: TaskRouterContext) {
+  const mimeTypes = context.mediaCandidates.map((media) => {
+    const raw = String(media.mimeType ?? "").split(";")[0].trim().toLowerCase();
+    if (raw) return raw;
+    const lowerUrl = media.url.toLowerCase();
+    if (lowerUrl.endsWith(".pdf")) return "application/pdf";
+    if (lowerUrl.endsWith(".png")) return "image/png";
+    if (lowerUrl.endsWith(".webp")) return "image/webp";
+    return "image/jpeg";
+  });
+
+  return {
+    hasMedia: context.mediaCandidates.length > 0,
+    hasImage: mimeTypes.some((mime) => mime.startsWith("image/")),
+    hasPdf: mimeTypes.some((mime) => mime === "application/pdf")
+  };
 }

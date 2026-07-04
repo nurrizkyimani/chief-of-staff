@@ -6,6 +6,7 @@ import {
   type MediaCandidate
 } from "../../integrations/openclaw/media-source.js";
 import { rasterizePdfBufferToJpegPages } from "../../media/pdf_rasterizer.js";
+import { formatReceiptFailureMessage } from "../../domains/receipts/receipt-formatting.js";
 import {
   parseAndQueueReceiptConfirmation,
   type ReceiptConfirmationRequest
@@ -71,7 +72,8 @@ export async function processReceiptMediaCandidate(
       mimeType,
       intent: input.intent,
       intentSource: input.intentSource,
-      captionText: input.captionText
+      captionText: input.captionText,
+      sourceFileType: "image"
     },
     mediaIndex,
     totalMedia,
@@ -104,25 +106,33 @@ async function processReceiptPdf(
       pages.length
     );
 
-    confirmations.push(
-      await parseAndQueueReceiptConfirmation(
-        {
-          sourcePlatform: input.sourcePlatform,
-          chatId: input.chatId,
-          messageId,
-          receivedAt: input.receivedAt,
-          imageBase64: page.imageBase64,
-          mimeType: page.mimeType,
-          intent: input.intent,
-          intentSource: input.intentSource,
-          captionText: input.captionText
-        },
-        mediaIndex,
-        totalMedia,
-        page.pageNumber,
-        pages.length
-      )
-    );
+    try {
+      confirmations.push(
+        await parseAndQueueReceiptConfirmation(
+          {
+            sourcePlatform: input.sourcePlatform,
+            chatId: input.chatId,
+            messageId,
+            receivedAt: input.receivedAt,
+            imageBase64: page.imageBase64,
+            mimeType: page.mimeType,
+            intent: input.intent,
+            intentSource: input.intentSource,
+            captionText: input.captionText,
+            sourceFileType: "pdf",
+            pdfPageNumber: page.pageNumber,
+            pdfTotalPages: page.totalPages,
+            pdfTruncated: page.truncated
+          },
+          mediaIndex,
+          totalMedia,
+          page.pageNumber,
+          pages.length
+        )
+      );
+    } catch (error) {
+      messages.push(formatReceiptFailureMessage(error, mediaIndex, totalMedia));
+    }
 
     if (pageIndex === 0 && page.truncated) {
       const countLabel = page.totalPages

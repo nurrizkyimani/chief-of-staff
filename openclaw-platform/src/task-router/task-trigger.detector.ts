@@ -1,5 +1,13 @@
 import { parseWishlistCommand } from "../usecases/wishlist-assistant/wishlist-markdown.js";
 
+export type MediaKindHint =
+  | boolean
+  | {
+      hasMedia: boolean;
+      hasImage?: boolean;
+      hasPdf?: boolean;
+    };
+
 export type TaskTrigger =
   | {
       kind: "receipt-assistant";
@@ -53,7 +61,10 @@ const RECEIPT_CONFIRMATION_PATTERN =
 const CICILAN_CONFIRMATION_PATTERN =
   /^(?:callback_data:\s*)?(?:cicilan_(?:confirm|reject):[A-Za-z0-9_-]+|cicilan_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/cicilan_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/cicilan_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
 
-export function detectTaskTrigger(text: string, hasMedia: boolean): TaskTrigger {
+export function detectTaskTrigger(text: string, media: MediaKindHint): TaskTrigger {
+  const mediaKind = normalizeMediaKind(media);
+  const hasMedia = mediaKind.hasMedia;
+  const hasPdfOnly = mediaKind.hasPdf && !mediaKind.hasImage;
   const hasReceipt = RECEIPT_COMMAND_PATTERN.test(text);
   const hasIncome = INCOME_COMMAND_PATTERN.test(text);
   const hasGym = GYM_COMMAND_PATTERN.test(text);
@@ -107,13 +118,33 @@ export function detectTaskTrigger(text: string, hasMedia: boolean): TaskTrigger 
       : { kind: "missing-media", task: "calory-assistant", label: "gym" };
   }
 
-  if (hasMedia) {
+  if (hasMedia && !hasPdfOnly) {
     return { kind: "receipt-assistant", intent: "receipt", source: "media_default" };
   }
 
   return { kind: "unhandled" };
 }
 
-export function shouldGateDefaultAgentReply(text: string, hasMedia: boolean): boolean {
-  return detectTaskTrigger(text, hasMedia).kind !== "unhandled";
+export function shouldGateDefaultAgentReply(text: string, media: MediaKindHint): boolean {
+  return detectTaskTrigger(text, media).kind !== "unhandled";
+}
+
+function normalizeMediaKind(media: MediaKindHint): {
+  hasMedia: boolean;
+  hasImage: boolean;
+  hasPdf: boolean;
+} {
+  if (typeof media === "boolean") {
+    return {
+      hasMedia: media,
+      hasImage: media,
+      hasPdf: false
+    };
+  }
+
+  return {
+    hasMedia: media.hasMedia,
+    hasImage: Boolean(media.hasImage),
+    hasPdf: Boolean(media.hasPdf)
+  };
 }

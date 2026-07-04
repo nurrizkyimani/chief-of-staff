@@ -22,6 +22,10 @@ export type BuildReceiptPayloadInput = {
   intent?: ReceiptIntent;
   intentSource?: ReceiptIntentSource;
   captionText?: string;
+  sourceFileType?: "image" | "pdf";
+  pdfPageNumber?: number;
+  pdfTotalPages?: number | null;
+  pdfTruncated?: boolean;
 };
 
 export async function buildReceiptPayload(input: BuildReceiptPayloadInput): Promise<ReceiptPayload> {
@@ -78,6 +82,10 @@ export async function buildReceiptPayload(input: BuildReceiptPayloadInput): Prom
       ocr_excerpt: candidate.raw_text,
       intent,
       intent_source: input.intentSource ?? "media_default",
+      source_file_type: input.sourceFileType ?? "image",
+      ...(input.pdfPageNumber ? { pdf_page_number: input.pdfPageNumber } : {}),
+      ...(input.pdfTotalPages !== undefined ? { pdf_total_pages: input.pdfTotalPages } : {}),
+      ...(input.pdfTruncated !== undefined ? { pdf_truncated: input.pdfTruncated } : {}),
       ...(input.captionText ? { caption_text: input.captionText } : {}),
       payment_method_source: paymentMethodDecision.source,
       ...(paymentMethodDecision.matchedAlias

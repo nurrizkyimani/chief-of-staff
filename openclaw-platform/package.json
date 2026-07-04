@@ -10,6 +10,7 @@
     "backfill": "tsx src/scripts/backfill_receipts.ts",
     "parity-compare": "tsx src/scripts/compare_parity_results.ts",
     "test:cicilan": "tsx src/scripts/test_cicilan_assistant.ts",
+    "test:receipt-pdf": "tsx src/scripts/test_receipt_pdf_routing.ts",
     "test:wishlist": "tsx src/scripts/test_wishlist_assistant.ts"
   },
   "dependencies": {
