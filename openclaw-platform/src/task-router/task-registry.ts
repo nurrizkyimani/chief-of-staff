@@ -1,4 +1,5 @@
 import { caloryAssistantHandler } from "../handlers/calory-assistant/calory-assistant.handler.js";
+import { budgetAssistantHandler } from "../handlers/budget-assistant/budget-assistant.handler.js";
 import {
   cicilanAssistantHandler,
   cicilanConfirmationHandler
@@ -17,6 +18,7 @@ import { wishlistAssistantHandler } from "../handlers/wishlist-assistant/wishlis
 import type { TaskHandler } from "./task-handler.js";
 
 export const taskRegistry: TaskHandler[] = [
+  budgetAssistantHandler,
   wealthAssistantHandler,
   wealthConfirmationHandler,
   cicilanAssistantHandler,

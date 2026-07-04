@@ -10,6 +10,9 @@ type ModuleId =
   | "model-health"
   | "finance-digest"
   | "calory-assistant"
+  | "cicilan-assistant"
+  | "wealth-assistant"
+  | "budget-assistant"
   | "wishlist-assistant";
 
 type ChannelPolicy = {
@@ -133,6 +136,13 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
 
   if (trigger.kind === "model-health") return policy.modules.includes("model-health");
   if (trigger.kind === "finance-digest") return policy.modules.includes("finance-digest");
+  if (trigger.kind === "budget-assistant") return policy.modules.includes("budget-assistant");
+  if (trigger.kind === "cicilan-assistant" || trigger.kind === "cicilan-confirmation") {
+    return policy.modules.includes("cicilan-assistant");
+  }
+  if (trigger.kind === "wealth-assistant" || trigger.kind === "wealth-confirmation") {
+    return policy.modules.includes("wealth-assistant");
+  }
   if (trigger.kind === "wishlist-assistant") {
     if (context.sourcePlatform === "whatsapp" && useWishlistExactDispatch()) return false;
     return policy.modules.includes("wishlist-assistant") || context.sourcePlatform === "whatsapp";

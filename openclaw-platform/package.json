@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:cicilan && npm run test:receipt-pdf && npm run test:wishlist && npm run test:finance",
+    "test": "npm run test:cicilan && npm run test:receipt-pdf && npm run test:wishlist && npm run test:finance && npm run test:wealth && npm run test:budget",
     "build": "tsc -p tsconfig.json",
     "validate-schema": "tsx src/scripts/validate_receipt_schema.ts",
     "check-classification": "tsx src/scripts/check_receipt_classification.ts",
@@ -16,7 +16,9 @@
     "test:wishlist": "tsx src/scripts/test_wishlist_assistant.ts",
     "test:finance": "tsx src/scripts/test_finance_digest.ts",
     "finance:digest:preview": "tsx src/scripts/send_finance_digest.ts --preview --force",
-    "finance:digest:send": "tsx src/scripts/send_finance_digest.ts"
+    "finance:digest:send": "tsx src/scripts/send_finance_digest.ts",
+    "test:budget": "tsx src/scripts/test_budget_guardrail.ts",
+    "budget:send": "node dist/scripts/send_budget_guardrail.js"
   },
   "dependencies": {
     "@buape/carbon": "^0.14.0",

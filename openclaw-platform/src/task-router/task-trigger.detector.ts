@@ -39,6 +39,10 @@ export type TaskTrigger =
       source: "wealth_confirmation";
     }
   | {
+      kind: "budget-assistant";
+      source: "budget_command";
+    }
+  | {
       kind: "model-health";
       source: "modelhealth_command";
     }
@@ -68,6 +72,7 @@ const INCOME_COMMAND_PATTERN = /(^|\s)\/income(?:@\w+)?(?:\s|$)/i;
 const GYM_COMMAND_PATTERN = /(^|\s)\/gym(?:@\w+)?(?:\s|$)/i;
 const MODEL_HEALTH_COMMAND_PATTERN = /(^|\s)\/modelhealth(?:@\w+)?(?:\s|$)/i;
 const FINANCE_COMMAND_PATTERN = /(^|\s)\/finance(?:@\w+)?(?:\s|$)/i;
+const BUDGET_COMMAND_PATTERN = /(?:^|\s)(?:\/budget(?:@\w+)?|budget\s+(?:status|check))(?:\s|$)/i;
 const CICILAN_TRIGGER_PATTERN = /\b(?:cicil(?:an)?|installments?|paylater|spaylater|spl)\b/i;
 const WEALTH_TRIGGER_PATTERN = /(?:^|\s)(?:\/wealth(?:@\w+)?|wealth|net\s*worth|aset|asset|saldo|portfolio|portofolio)(?:\s|$)/i;
 const RECEIPT_CONFIRMATION_PATTERN =
@@ -97,6 +102,9 @@ export function detectTaskTrigger(text: string, media: MediaKindHint): TaskTrigg
 
   if (MODEL_HEALTH_COMMAND_PATTERN.test(text)) {
     return { kind: "model-health", source: "modelhealth_command" };
+  }
+  if (BUDGET_COMMAND_PATTERN.test(text)) {
+    return { kind: "budget-assistant", source: "budget_command" };
   }
 
   if (FINANCE_COMMAND_PATTERN.test(text)) {

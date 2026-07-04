@@ -5,6 +5,7 @@ const RECEIPT_COMMAND_RE = /^\/receipt(?:@\w+)?(?:\s|$)/i;
 const INCOME_COMMAND_RE = /^\/income(?:@\w+)?(?:\s|$)/i;
 const GYM_COMMAND_RE = /^\/gym(?:@\w+)?(?:\s|$)/i;
 const MODELHEALTH_COMMAND_RE = /^\/modelhealth(?:\s|$)/i;
+const BUDGET_COMMAND_RE = /(?:^|\s)(?:\/budget(?:@\w+)?|budget\s+(?:status|check))(?:\s|$)/i;
 const CONFIRMATION_RE =
   /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|receipt_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/receipt_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
 const NO_REPLY_RE = /^NO_REPLY$/i;
@@ -77,6 +78,7 @@ function shouldSilence(event) {
   if (INCOME_COMMAND_RE.test(text)) return hasMedia ? "income_command" : "income_missing_media";
   if (GYM_COMMAND_RE.test(text)) return hasMedia ? "gym_command" : "gym_missing_media";
   if (MODELHEALTH_COMMAND_RE.test(text)) return "modelhealth_command";
+  if (BUDGET_COMMAND_RE.test(text)) return "budget_command";
   if (CONFIRMATION_RE.test(text)) return "receipt_confirmation";
   if (hasMedia) return "task_media";
   return null;
