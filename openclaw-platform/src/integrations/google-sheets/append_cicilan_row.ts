@@ -1,65 +1,62 @@
 import { env } from "../../config/env.js";
-import type { ReceiptPayload } from "../../domains/receipts/receipt.schema.js";
-import { createSheetsClient } from "./sheets_client.js";
+import type { CicilanPayload } from "../../domains/cicilan/cicilan.schema.js";
 import { ReceiptError, getErrorStatus } from "../../errors/receipt_errors.js";
+import { createSheetsClient } from "./sheets_client.js";
 
-export type AppendReceiptResult = "appended" | "duplicate";
+export type AppendCicilanResult = "appended" | "duplicate";
 
-function toReceiptsRawRow(payload: ReceiptPayload): (string | number | boolean)[] {
+function toCicilanRawRow(payload: CicilanPayload): (string | number)[] {
   return [
-    payload.receipt_id,
+    payload.cicilan_id,
     payload.source.message_id,
     payload.merchant_name,
-    payload.receipt_date,
+    payload.cicilan_date,
     payload.total_amount,
-    payload.tax_amount,
     payload.payment_method,
     payload.classification,
-    payload.currency,
     payload.confidence,
-    payload.needs_review,
-    payload.tax_label_raw,
+    payload.tenor_months,
     payload.month_key,
     JSON.stringify(payload.raw_json)
   ];
 }
 
-export async function isDuplicateReceipt(receiptId: string): Promise<boolean> {
+export async function isDuplicateCicilan(cicilanId: string): Promise<boolean> {
   try {
     const sheets = createSheetsClient();
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId: env.RECEIPT_SPREADSHEET_ID,
-      range: `${env.RECEIPT_SHEET_RAW}!A:A`
+      range: `${env.CICILAN_SHEET_RAW}!A:A`
     });
 
     const values = existing.data.values ?? [];
-    return values.some((row) => row[0] === receiptId);
+    return values.some((row) => row[0] === cicilanId);
   } catch (error) {
-    throw new ReceiptError("SHEETS_READ", "Could not read existing receipts from Google Sheets.", {
+    throw new ReceiptError("SHEETS_READ", "Could not read existing cicilan rows from Google Sheets.", {
       cause: error,
       status: getErrorStatus(error)
     });
   }
 }
 
-export async function appendReceiptsRawRow(payload: ReceiptPayload): Promise<AppendReceiptResult> {
-  const duplicate = await isDuplicateReceipt(payload.receipt_id);
+export async function appendCicilanRawRow(payload: CicilanPayload): Promise<AppendCicilanResult> {
+  const duplicate = await isDuplicateCicilan(payload.cicilan_id);
   if (duplicate) return "duplicate";
 
   try {
     const sheets = createSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: env.RECEIPT_SPREADSHEET_ID,
-      range: `${env.RECEIPT_SHEET_RAW}!A:N`,
+      range: `${env.CICILAN_SHEET_RAW}!A:K`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
         majorDimension: "ROWS",
-        values: [toReceiptsRawRow(payload)]
+        values: [toCicilanRawRow(payload)]
       }
     });
     return "appended";
   } catch (error) {
-    throw new ReceiptError("SHEETS_WRITE", "Could not append receipt into Google Sheets.", {
+    throw new ReceiptError("SHEETS_WRITE", "Could not append cicilan into Google Sheets.", {
       cause: error,
       status: getErrorStatus(error)
     });

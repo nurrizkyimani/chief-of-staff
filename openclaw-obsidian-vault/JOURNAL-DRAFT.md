@@ -1,3 +1,10 @@
+# BOT READ THIS RULE
+1. if you want to add, you must add into the stack the most above; and never add the last line;
+2. same goes with the same day; if you see the same day; you must put it in the top below the title # M4/W1/D5 - Sun, 5 Apr 26
+3. every each new day or if the day enver exist must put # M4/W1/D5 - Sun, 5 Apr 26 format , the only # heading 1 is the # M4/W1/D5 - Sun, 5 Apr 26,
+4. #M4/W1/D5 - Sun, 5 Apr 26 is just format the day should follow the current date
+5. dont be dumb; make no mistke
+
 
 # M4/W1/D5 - Sun, 5 Apr 26
 ## OpenClaw Receipt Assistant - Local Flow, Hook Flow, and Real Code Path

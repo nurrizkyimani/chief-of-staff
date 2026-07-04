@@ -5,6 +5,7 @@ import {
 import { handleReceiptConfirmation } from "../../usecases/receipt-assistant/handle-receipt-confirmation.js";
 import {
   CALLBACK_CONFIRM_PREFIX,
+  CALLBACK_METHOD_PREFIX,
   CALLBACK_REJECT_PREFIX,
   parseConfirmationAction
 } from "../../usecases/receipt-assistant/receipt-confirmation-store.js";
@@ -43,8 +44,15 @@ export const receiptAssistantHandler: TaskHandler = {
       confirmations: result.confirmations.map((confirmation) => ({
         token: confirmation.token,
         previewText: confirmation.previewText,
+        paymentMethod: confirmation.paymentMethod,
+        paymentMethodOptions: confirmation.paymentMethodOptions,
         confirmCommand: `/receipt_confirm ${confirmation.token}`,
         rejectCommand: `/receipt_reject ${confirmation.token}`,
+        methodCommands: confirmation.paymentMethodOptions.map((paymentMethod) => ({
+          paymentMethod,
+          command: `/receipt_method ${confirmation.token} ${paymentMethod}`,
+          callbackData: `${CALLBACK_METHOD_PREFIX}${confirmation.token}:${paymentMethod}`
+        })),
         confirmCallbackData: `${CALLBACK_CONFIRM_PREFIX}${confirmation.token}`,
         rejectCallbackData: `${CALLBACK_REJECT_PREFIX}${confirmation.token}`
       }))
@@ -69,7 +77,10 @@ export const receiptConfirmationHandler: TaskHandler = {
 
     logger?.log("task_router.receipt.confirmation", {
       decision: confirmationAction.decision,
-      token: confirmationAction.token
+      token: confirmationAction.token,
+      ...(confirmationAction.decision === "method"
+        ? { paymentMethod: confirmationAction.paymentMethod }
+        : {})
     });
 
     const result = await handleReceiptConfirmation(confirmationAction);

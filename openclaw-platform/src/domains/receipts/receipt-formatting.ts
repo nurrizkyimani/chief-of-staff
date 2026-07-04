@@ -38,19 +38,20 @@ export function receiptRowValues(payload: ReceiptPayload, rawJsonMax: number): A
     ["D", "receipt_date", payload.receipt_date],
     ["E", "total_amount", payload.total_amount.toString()],
     ["F", "tax_amount", payload.tax_amount.toString()],
-    ["G", "classification", payload.classification],
-    ["H", "currency", payload.currency],
-    ["I", "confidence", payload.confidence.toString()],
-    ["J", "needs_review", payload.needs_review ? "TRUE" : "FALSE"],
-    ["K", "tax_label_raw", payload.tax_label_raw],
-    ["L", "month_key", payload.month_key],
-    ["M", "raw_json", truncateText(JSON.stringify(payload.raw_json), rawJsonMax)]
+    ["G", "payment_method", payload.payment_method || "unknown"],
+    ["H", "classification", payload.classification],
+    ["I", "currency", payload.currency],
+    ["J", "confidence", payload.confidence.toString()],
+    ["K", "needs_review", payload.needs_review ? "TRUE" : "FALSE"],
+    ["L", "tax_label_raw", payload.tax_label_raw],
+    ["M", "month_key", payload.month_key],
+    ["N", "raw_json", truncateText(JSON.stringify(payload.raw_json), rawJsonMax)]
   ];
 }
 
 export function formatReceiptTable(payload: ReceiptPayload, rawJsonMax: number): string {
   const rows = receiptRowValues(payload, rawJsonMax)
-    .map(([col, header, value]) => `| ${col} | \`${header}\` | ${tableCell(value, col === "M" ? rawJsonMax : 240)} |`)
+    .map(([col, header, value]) => `| ${col} | \`${header}\` | ${tableCell(value, col === "N" ? rawJsonMax : 240)} |`)
     .join("\n");
 
   return `| Col | Header | Value |

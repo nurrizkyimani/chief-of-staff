@@ -4,7 +4,7 @@ const RECEIPT_COMMAND_RE = /^\/receipt(?:@\w+)?(?:\s|$)/i;
 const INCOME_COMMAND_RE = /^\/income(?:@\w+)?(?:\s|$)/i;
 const MODELHEALTH_COMMAND_RE = /^\/modelhealth(?:\s|$)/i;
 const CONFIRMATION_RE =
-  /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+)$/i;
+  /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|receipt_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/receipt_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
 
 function textFrom(value) {
   return typeof value === "string" ? value.trim() : "";

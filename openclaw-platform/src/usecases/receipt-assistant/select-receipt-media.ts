@@ -21,7 +21,7 @@ export function selectReceiptMediaCandidates(mediaCandidates: MediaCandidate[]):
   });
 
   return {
-    candidates: hintedImages.length > 0 ? [...hintedImages, ...hintedUnknown] : mediaCandidates,
-    skippedPdfCount: hintedImages.length > 0 ? hintedPdfs.length : 0
+    candidates: hintedImages.length > 0 ? [...hintedImages, ...hintedPdfs, ...hintedUnknown] : mediaCandidates,
+    skippedPdfCount: 0
   };
 }

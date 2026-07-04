@@ -47,6 +47,9 @@ Fill `.env` values:
 - `RECEIPT_MAX_PDF_PAGES` (default `3`)
 - `RECEIPT_ACCEPT_PDF` (`false` = image-first mode, keep PDF code path but disable intake)
 - `RECEIPT_STRICT_MEMORY_ONLY` (`true` = image-only strict in-memory mode)
+- `RECEIPT_PAYMENT_METHODS` (ordered picker values; default `cc-bca,db-bca,cc-bri,db-jago,db-cash,bca,cc-jenius,cash`)
+- `RECEIPT_PAYMENT_METHOD_ALIASES` (specific phrases that auto-select a method)
+- `RECEIPT_PAYMENT_AMBIGUOUS_ALIASES` (generic phrases like `bca` that show the picker)
 - `OPENCLAW_MEMORY_VAULT_PATH` (absolute path to the Obsidian memory vault repo)
 - `OPENCLAW_MEMORY_GIT_AUTO_COMMIT` (`true` = commit memory file changes after writes)
 - `OPENCLAW_MEMORY_GIT_AUTO_PUSH` (`true` = push memory commits to the vault remote after commit)
@@ -65,8 +68,8 @@ Create tabs:
 - `receipts_raw`
 - `monthly_breakdown`
 
-In `receipts_raw` row 1, add A:M headers:
-`receipt_id,message_id,merchant_name,receipt_date,total_amount,tax_amount,classification,currency,confidence,needs_review,tax_label_raw,month_key,raw_json`
+In `receipts_raw` row 1, add A:N headers:
+`receipt_id,message_id,merchant_name,receipt_date,total_amount,tax_amount,payment_method,classification,currency,confidence,needs_review,tax_label_raw,month_key,raw_json`
 
 Share the sheet with the service-account `client_email` as Editor.
 

@@ -6,7 +6,7 @@ const INCOME_COMMAND_RE = /^\/income(?:@\w+)?(?:\s|$)/i;
 const GYM_COMMAND_RE = /^\/gym(?:@\w+)?(?:\s|$)/i;
 const MODELHEALTH_COMMAND_RE = /^\/modelhealth(?:\s|$)/i;
 const CONFIRMATION_RE =
-  /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+)$/i;
+  /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|receipt_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/receipt_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
 const NO_REPLY_RE = /^NO_REPLY$/i;
 const MD_BOT_REPLY_RE = /^\[md-bot\]\s+/i;
 const MEDIA_PLACEHOLDER_RE = /^<media:[^>]+>(?:\s*\([^)]*\))?$/i;

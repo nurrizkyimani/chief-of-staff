@@ -86,12 +86,28 @@ async function presentConfirmation(
     chatId: telegramChatId,
     text: confirmation.previewText,
     token: confirmation.token,
+    paymentMethod: confirmation.paymentMethod,
+    methodButtons: confirmation.methodCommands.map((method) => ({
+      text: method.paymentMethod,
+      callbackData: method.callbackData
+    })),
     confirmCallbackData: confirmation.confirmCallbackData,
     rejectCallbackData: confirmation.rejectCallbackData
   });
 }
 
 function formatConfirmationFallback(confirmation: TaskConfirmation): string {
+  if (!confirmation.paymentMethod) {
+    const methods = confirmation.methodCommands
+      .map((method) => `${method.paymentMethod}: ${method.command}`)
+      .join("\n");
+    return `${confirmation.previewText}
+
+Choose payment method:
+${methods}
+Cancel: ${confirmation.rejectCommand}`;
+  }
+
   return `${confirmation.previewText}
 
 Confirm: ${confirmation.confirmCommand}

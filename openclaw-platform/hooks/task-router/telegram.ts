@@ -6,6 +6,11 @@ export async function sendTelegramInlineConfirmation(input: {
   chatId: string;
   text: string;
   token: string;
+  paymentMethod: string;
+  methodButtons: Array<{
+    text: string;
+    callbackData: string;
+  }>;
   confirmCallbackData: string;
   rejectCallbackData: string;
 }): Promise<boolean> {
@@ -27,18 +32,7 @@ export async function sendTelegramInlineConfirmation(input: {
         chat_id: input.chatId,
         text: input.text,
         reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Yes",
-                callback_data: input.confirmCallbackData
-              },
-              {
-                text: "No",
-                callback_data: input.rejectCallbackData
-              }
-            ]
-          ]
+          inline_keyboard: buildConfirmationKeyboard(input)
         }
       })
     });
@@ -59,6 +53,43 @@ export async function sendTelegramInlineConfirmation(input: {
     });
     return false;
   }
+}
+
+function buildConfirmationKeyboard(input: {
+  paymentMethod: string;
+  methodButtons: Array<{
+    text: string;
+    callbackData: string;
+  }>;
+  confirmCallbackData: string;
+  rejectCallbackData: string;
+}): Array<Array<{ text: string; callback_data: string }>> {
+  if (!input.paymentMethod) {
+    const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+    for (let index = 0; index < input.methodButtons.length; index += 2) {
+      rows.push(
+        input.methodButtons.slice(index, index + 2).map((button) => ({
+          text: button.text,
+          callback_data: button.callbackData
+        }))
+      );
+    }
+    rows.push([{ text: "No", callback_data: input.rejectCallbackData }]);
+    return rows;
+  }
+
+  return [
+    [
+      {
+        text: `Save ${input.paymentMethod}`,
+        callback_data: input.confirmCallbackData
+      },
+      {
+        text: "No",
+        callback_data: input.rejectCallbackData
+      }
+    ]
+  ];
 }
 
 export async function sendTelegramTextMessage(chatId: string, text: string): Promise<boolean> {

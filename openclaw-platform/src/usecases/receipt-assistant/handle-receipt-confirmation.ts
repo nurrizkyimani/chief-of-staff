@@ -1,5 +1,7 @@
 import { env } from "../../config/env.js";
 import { formatReceiptFailureMessage, prefixReceiptLabel } from "../../domains/receipts/receipt-formatting.js";
+import { isReceiptPaymentMethod } from "../../domains/receipts/receipt-payment-method.js";
+import type { ReceiptPayload } from "../../domains/receipts/receipt.schema.js";
 import type { ConfirmationAction } from "./receipt-confirmation-store.js";
 import {
   deletePendingConfirmation,
@@ -42,8 +44,27 @@ export async function handleReceiptConfirmation(action: ConfirmationAction): Pro
     };
   }
 
+  if (action.decision === "method" && !isReceiptPaymentMethod(action.paymentMethod)) {
+    return {
+      handled: true,
+      message: `Unknown payment method: ${action.paymentMethod}. Re-send the media or choose one of the listed buttons.`
+    };
+  }
+
+  const payload =
+    action.decision === "method"
+      ? withPaymentMethod(pending.payload, action.paymentMethod)
+      : pending.payload;
+
+  if (action.decision === "confirm" && !payload.payment_method) {
+    return {
+      handled: true,
+      message: "Choose a payment method first, or tap No to reject this receipt."
+    };
+  }
+
   try {
-    const result = await saveConfirmedReceipt(pending.payload);
+    const result = await saveConfirmedReceipt(payload);
     const prefix = prefixReceiptLabel(
       pending.mediaIndex,
       pending.totalMedia,
@@ -55,7 +76,7 @@ export async function handleReceiptConfirmation(action: ConfirmationAction): Pro
     }
     return {
       handled: true,
-      message: formatConfirmedReceiptSaveMessage(result, pending.payload.receipt_id, prefix)
+      message: formatConfirmedReceiptSaveMessage(result, payload.receipt_id, prefix)
     };
   } catch (error) {
     return {
@@ -63,4 +84,16 @@ export async function handleReceiptConfirmation(action: ConfirmationAction): Pro
       message: formatReceiptFailureMessage(error, pending.mediaIndex, pending.totalMedia)
     };
   }
+}
+
+function withPaymentMethod(payload: ReceiptPayload, paymentMethod: string): ReceiptPayload {
+  return {
+    ...payload,
+    payment_method: paymentMethod,
+    raw_json: {
+      ...payload.raw_json,
+      payment_method_source: "button",
+      payment_method_selected: paymentMethod
+    }
+  };
 }
