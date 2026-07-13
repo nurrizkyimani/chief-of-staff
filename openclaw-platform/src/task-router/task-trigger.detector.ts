@@ -35,6 +35,10 @@ export type TaskTrigger =
       source: "modelhealth_command";
     }
   | {
+      kind: "finance-digest";
+      source: "finance_command";
+    }
+  | {
       kind: "wishlist-assistant";
       source: "wishlist_command" | "wishlist_import";
     }
@@ -55,6 +59,7 @@ const RECEIPT_COMMAND_PATTERN = /(^|\s)\/receipt(?:@\w+)?(?:\s|$)/i;
 const INCOME_COMMAND_PATTERN = /(^|\s)\/income(?:@\w+)?(?:\s|$)/i;
 const GYM_COMMAND_PATTERN = /(^|\s)\/gym(?:@\w+)?(?:\s|$)/i;
 const MODEL_HEALTH_COMMAND_PATTERN = /(^|\s)\/modelhealth(?:@\w+)?(?:\s|$)/i;
+const FINANCE_COMMAND_PATTERN = /(^|\s)\/finance(?:@\w+)?(?:\s|$)/i;
 const CICILAN_TRIGGER_PATTERN = /\b(?:cicil(?:an)?|installments?|paylater|spaylater|spl)\b/i;
 const RECEIPT_CONFIRMATION_PATTERN =
   /^(?:callback_data:\s*)?(?:receipt_(?:confirm|reject):[A-Za-z0-9_-]+|receipt_method:[A-Za-z0-9_-]+:[a-z0-9-]+|\/receipt_(?:confirm|reject)\s+[A-Za-z0-9_-]+|\/receipt_method\s+[A-Za-z0-9_-]+\s+[a-z0-9-]+)$/i;
@@ -78,6 +83,10 @@ export function detectTaskTrigger(text: string, media: MediaKindHint): TaskTrigg
 
   if (MODEL_HEALTH_COMMAND_PATTERN.test(text)) {
     return { kind: "model-health", source: "modelhealth_command" };
+  }
+
+  if (FINANCE_COMMAND_PATTERN.test(text)) {
+    return { kind: "finance-digest", source: "finance_command" };
   }
 
   if (CICILAN_TRIGGER_PATTERN.test(text)) {

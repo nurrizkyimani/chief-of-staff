@@ -7,7 +7,7 @@
   "chats": {
     "telegram:380399260": {
       "name": "personal-finance",
-      "modules": ["receipt-parser"],
+      "modules": ["receipt-parser", "finance-digest"],
       "media": "receipt-parser",
       "unknownText": "ignore"
     },
@@ -38,6 +38,10 @@
     },
     "model-health": {
       "type": "model-health"
+    },
+    "finance-digest": {
+      "type": "finance-digest",
+      "version": "v1"
     },
     "calory-assistant": {
       "type": "calory-assistant",
