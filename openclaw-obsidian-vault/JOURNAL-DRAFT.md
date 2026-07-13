@@ -6,6 +6,38 @@
 5. dont be dumb; make no mistke
 
 
+# M7/W1/D4 - Sat, 4 Jul 26
+## OpenClaw Life Automation - Next Feature Ideas
+
+### Direction
+The current Telegram/WhatsApp-style assistant already has useful foundations: finance intake, receipt OCR/PDF processing, payment method confirmation, cicilan projection, Google Sheets breakdowns, wishlist capture, and Obsidian-backed notes. The next step is to turn it into a broader personal operating system where chat is the input layer and structured tables/notes/reminders are the output layer.
+
+### Strong Next Features
+- **Subscription tracker**: capture recurring payments like `langganan netflix 186k cc bca tiap bulan tanggal 12`, store them in `subscription_raw`, and project them into `monthly_breakdown_v2`.
+- **Debt and lending tracker**: capture `pinjemin adi 500k cash`, `utang ke budi 1.2jt due 20 juli`, or `adi bayar 200k`, then track outstanding balance.
+- **Cashflow forecast**: combine receipts, cicilan, subscriptions, expected income, and debt repayment into a forward-looking monthly view.
+- **Budget guardrail**: send alerts when a category is near or over budget, such as food at 82% or dopamine over by Rp120k.
+- **Smart wishlist purchase decision**: connect wishlist to finance so the bot can answer `can i buy uniqlo jacket 799k?` using current spend, cicilan, priority, and budget.
+- **Receipt item extraction**: parse line items from receipts into merchant, item, quantity, price, and category for deeper grocery/food analysis.
+- **Inventory and warranty tracker**: capture purchases like `beli airpods 2.5jt garansi 1 tahun`, store warranty expiry, receipt raw JSON, and remind before expiry.
+- **Trip expense mode**: create temporary buckets like `trip bali`, then attach expenses to the trip and summarize total cost.
+- **Daily journal from chat**: send `journal today ...` and append structured notes into Obsidian with tags, mood, and tasks.
+- **Habit and health logging**: capture simple logs like `gym push day 70 menit`, `weight 72.4`, `sleep 6h`, or `makan nasi ayam 650 cal`, then produce weekly summaries.
+
+### Recommended Build Order
+1. **Subscription tracker** first, because it is closest to cicilan and can reuse the same monthly projection pattern.
+2. **Cashflow forecast** after that, because it turns finance from historical tracking into proactive planning.
+3. **Wishlist purchase decision** next, because it connects spending, priorities, and personal decision support.
+
+### Product Principle
+Keep every new module simple at the raw layer:
+- one raw tab per object type
+- one confirmation flow
+- one monthly projection if it affects future cashflow
+- one clear chat trigger
+
+The bot should stay strict for anything that creates future financial impact, then friendly and flexible for lower-risk notes, wishlist, and journal capture.
+
 # M4/W1/D5 - Sun, 5 Apr 26
 ## OpenClaw Receipt Assistant - Local Flow, Hook Flow, and Real Code Path
 
