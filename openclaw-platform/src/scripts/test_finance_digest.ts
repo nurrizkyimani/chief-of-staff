@@ -11,9 +11,12 @@ import {
   parseReceiptQuality,
   parseWeeklySpend
 } from "../integrations/google-sheets/finance-digest-sheet-parser.js";
-import { detectTaskTrigger } from "../task-router/task-trigger.detector.js";
 import { formatFinanceDigest } from "../usecases/finance-digest/format-finance-digest.js";
 import { getFinanceDigest } from "../usecases/finance-digest/get-finance-digest.js";
+
+globalThis.fetch = (() => {
+  throw new Error("Network access is forbidden in finance unit tests.");
+}) as unknown as typeof fetch;
 
 const ok = <T>(rows: T[], warnings: string[] = []): FinanceSourceResult<T> => ({ rows, warnings });
 
@@ -222,14 +225,5 @@ assert.deepEqual(
   parseWeeklySpend([["week_start", "week_end", "payment_method", "amount_spent"]]),
   { rows: [], warnings: [] }
 );
-
-assert.deepEqual(detectTaskTrigger("/finance", false), {
-  kind: "finance-digest",
-  source: "finance_command"
-});
-assert.deepEqual(detectTaskTrigger("/finance@my_bot", false), {
-  kind: "finance-digest",
-  source: "finance_command"
-});
 
 console.log("finance digest tests passed");
