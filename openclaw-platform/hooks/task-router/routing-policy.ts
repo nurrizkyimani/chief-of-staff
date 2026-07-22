@@ -8,6 +8,7 @@ type ModuleId =
   | "receipt-parser"
   | "receipt-parser-v2"
   | "model-health"
+  | "finance-digest"
   | "calory-assistant"
   | "wishlist-assistant";
 
@@ -131,6 +132,7 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
   }
 
   if (trigger.kind === "model-health") return policy.modules.includes("model-health");
+  if (trigger.kind === "finance-digest") return policy.modules.includes("finance-digest");
   if (trigger.kind === "wishlist-assistant") {
     if (context.sourcePlatform === "whatsapp" && useWishlistExactDispatch()) return false;
     return policy.modules.includes("wishlist-assistant") || context.sourcePlatform === "whatsapp";

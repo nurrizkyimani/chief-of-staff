@@ -44,6 +44,12 @@ Fill `.env` values:
 - `RECEIPT_SPREADSHEET_ID`
 - `RECEIPT_SHEET_RAW`
 - `RECEIPT_SHEET_MONTHLY`
+- `FINANCE_WEEKLY_SPEND_SHEET` (default `cc_weekly_spend`)
+- `FINANCE_PAYMENT_CALENDAR_SHEET` (default `cc_payment_calendar`)
+- `FINANCE_DIGEST_ENABLED` (`false` until manual output is verified)
+- `FINANCE_DIGEST_TIMEZONE` (default `Asia/Jakarta`)
+- `FINANCE_DIGEST_LOOKAHEAD_DAYS` (default `14`)
+- `FINANCE_DIGEST_TELEGRAM_CHAT_ID` (required only for scheduled/direct delivery)
 - `RECEIPT_MAX_PDF_PAGES` (default `3`)
 - `RECEIPT_ACCEPT_PDF` (`false` = image-first mode, keep PDF code path but disable intake)
 - `RECEIPT_STRICT_MEMORY_ONLY` (`true` = image-only strict in-memory mode)
@@ -156,9 +162,85 @@ Model connectivity check from Telegram:
 - send `/modelhealth`
 - bot replies with provider, configured model, served model, latency, and success/failure
 
+Finance digest:
+- send `/finance` in a chat whose routing policy includes `finance-digest`
+- the command reads `cc_weekly_spend`, `cc_payment_calendar`, and current-month quality fields from `receipts_raw`
+- the command never writes to Google Sheets and makes no model call
+
 Album behavior:
 - multiple media attachments in one message are processed independently
 - each media/page gets a deterministic derived `message_id` suffix for idempotency
+
+## Weekly finance digest (RFC-006)
+
+Headers read by the digest:
+
+```text
+cc_weekly_spend:
+week_start,week_end,payment_method,amount_spent
+
+cc_payment_calendar:
+due_date,payment_method,amount_due
+
+receipts_raw quality fields:
+receipt_date,payment_method,needs_review
+```
+
+The reader resolves columns by header name, so column order may change. Missing or duplicate
+required headers fail that source closed instead of guessing a column.
+
+Run deterministic fixture tests:
+
+```bash
+cd openclaw-platform
+make test-finance
+```
+
+Preview live Sheet output in the terminal without sending Telegram and without enabling the schedule:
+
+```bash
+make finance-digest-preview
+```
+
+Test the task-router path:
+
+```bash
+make gateway
+```
+
+Then send `/finance` to the configured personal-finance Telegram chat. The chat entry in
+`config/channel-routing.json` must include `finance-digest`.
+
+After the preview and `/finance` values match the visible Sheet, enable direct scheduled delivery:
+
+```env
+FINANCE_DIGEST_ENABLED=true
+FINANCE_DIGEST_TIMEZONE=Asia/Jakarta
+FINANCE_DIGEST_LOOKAHEAD_DAYS=14
+FINANCE_DIGEST_TELEGRAM_CHAT_ID=380399260
+```
+
+Send one direct test:
+
+```bash
+make finance-digest-send
+```
+
+For a local/VPS host deployment, install this crontab entry with the real repository path:
+
+```cron
+0 8 * * 1 cd /absolute/path/to/chief-of-staff/openclaw-platform && ./scripts/run-finance-digest.sh >> /tmp/openclaw-finance-digest.log 2>&1
+```
+
+For the Docker deployment, run the already-built deterministic sender in the gateway container:
+
+```cron
+0 8 * * 1 cd /absolute/path/to/chief-of-staff/openclaw-platform && docker compose exec -T gateway npm run finance:digest:send >> /tmp/openclaw-finance-digest.log 2>&1
+```
+
+The host scheduler supplies Monday 08:00. `FINANCE_DIGEST_TIMEZONE` controls date selection and
+formatting inside the digest; configure the host's cron timezone accordingly if it is not already
+`Asia/Jakarta`.
 
 ## Media privacy (avoid saving pictures)
 

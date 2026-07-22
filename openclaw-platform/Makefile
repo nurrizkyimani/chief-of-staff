@@ -2,7 +2,7 @@ SHELL := /bin/bash
 OPENCLAW := ./scripts/openclaw-local.sh
 ENV_FILE := .env
 
-.PHONY: help install install-host env-check validate-schema build backfill parity-compare telegram-user-id \
+.PHONY: help install install-host env-check validate-schema build backfill parity-compare telegram-user-id finance-digest-preview finance-digest-send test-finance \
 	openclaw-version onboard gateway pairing-list-telegram pairing-approve-telegram \
 	logs status health doctor doctor-fix gateway-mode-local security-audit sandbox-enable sandbox-disable sandbox-explain \
 	sandbox-recreate sandbox-network-none sandbox-network-bridge sandbox-network-custom \
@@ -18,6 +18,9 @@ help:
 	@echo "  make backfill INPUT=./path/to/backfill.json"
 	@echo "  make parity-compare BASELINE=./baseline.json SANDBOX=./sandbox.json"
 	@echo "  make telegram-user-id"
+	@echo "  make test-finance"
+	@echo "  make finance-digest-preview"
+	@echo "  make finance-digest-send"
 	@echo "  make openclaw-version"
 	@echo "  make onboard"
 	@echo "  make gateway"
@@ -75,6 +78,15 @@ parity-compare:
 
 telegram-user-id: env-check
 	@set -a; source "$(ENV_FILE)"; set +a; python3 ./scripts/telegram_user_id.py
+
+test-finance:
+	npm run test:finance
+
+finance-digest-preview: env-check
+	npm run finance:digest:preview
+
+finance-digest-send: env-check
+	npm run finance:digest:send
 
 openclaw-version:
 	$(OPENCLAW) --version
