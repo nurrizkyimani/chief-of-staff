@@ -108,12 +108,12 @@ function parseAmount(value: FinanceSheetCell): number | null {
   if (typeof value === "number") {
     amount = value;
   } else {
-    const normalized = textValue(value)
-      .replace(/\s/g, "")
-      .replace(/^rp/i, "")
-      .replace(/[.,]/g, "");
-    if (!/^\d+$/.test(normalized)) return null;
-    amount = Number(normalized);
+    const currency = textValue(value).replace(/\s/g, "").replace(/^rp/i, "");
+    const validInteger = /^\d+$/.test(currency);
+    const validDotGroups = /^\d{1,3}(?:\.\d{3})+$/.test(currency);
+    const validCommaGroups = /^\d{1,3}(?:,\d{3})+$/.test(currency);
+    if (!validInteger && !validDotGroups && !validCommaGroups) return null;
+    amount = Number(currency.replace(/[.,]/g, ""));
   }
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
@@ -143,4 +143,3 @@ function textValue(value: FinanceSheetCell): string {
 function isBlank(value: FinanceSheetCell): boolean {
   return textValue(value) === "";
 }
-

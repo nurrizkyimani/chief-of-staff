@@ -35,4 +35,3 @@ main().catch((error) => {
   console.error((error as Error)?.message ?? "Finance digest failed.");
   process.exitCode = 1;
 });
-
