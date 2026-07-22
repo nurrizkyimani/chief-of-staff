@@ -18,4 +18,3 @@ export async function sendTelegramText(chatId: string, text: string): Promise<vo
     throw new Error(`Telegram send failed with HTTP ${response.status}.`);
   }
 }
-

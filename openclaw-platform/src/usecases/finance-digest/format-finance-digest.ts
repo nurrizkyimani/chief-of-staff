@@ -51,4 +51,3 @@ export function formatDate(isoDate: string): string {
     year: "numeric"
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
-

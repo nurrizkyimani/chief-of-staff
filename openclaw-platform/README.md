@@ -217,7 +217,7 @@ After the preview and `/finance` values match the visible Sheet, enable direct s
 FINANCE_DIGEST_ENABLED=true
 FINANCE_DIGEST_TIMEZONE=Asia/Jakarta
 FINANCE_DIGEST_LOOKAHEAD_DAYS=14
-FINANCE_DIGEST_TELEGRAM_CHAT_ID=380399260
+FINANCE_DIGEST_TELEGRAM_CHAT_ID=your_test_chat_id
 ```
 
 Send one direct test:
@@ -225,6 +225,22 @@ Send one direct test:
 ```bash
 make finance-digest-send
 ```
+
+Manual acceptance checklist (use test Sheet tabs and a test Telegram chat first):
+
+1. Keep `FINANCE_DIGEST_ENABLED=false`, run `make finance-digest-preview`, and compare every
+   amount and due date with the visible Sheet rows.
+2. Send `/finance` in the authorized test chat and confirm it matches the terminal preview.
+3. Test empty weekly-spend and payment-calendar tabs; the message must report no spend, a
+   `Rp0` reserve, and no upcoming payments.
+4. Remove one required header from a test tab; the digest must show a partial-data warning and
+   must not guess a replacement column.
+5. Compare Google Sheets version history before and after preview and `/finance`; there must be
+   no revision created by the digest.
+6. Set `FINANCE_DIGEST_ENABLED=true` and the test chat ID, run `make finance-digest-send`, and
+   confirm exactly one message arrives in the test chat.
+7. Run the cron command once in a short test window, confirm one delivery, then restore the
+   intended Monday 08:00 schedule before enabling the production chat.
 
 For a local/VPS host deployment, install this crontab entry with the real repository path:
 

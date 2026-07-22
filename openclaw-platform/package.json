@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "npm run test:cicilan && npm run test:receipt-pdf && npm run test:wishlist && npm run test:finance",
     "build": "tsc -p tsconfig.json",
     "validate-schema": "tsx src/scripts/validate_receipt_schema.ts",
     "check-classification": "tsx src/scripts/check_receipt_classification.ts",

@@ -47,4 +47,3 @@ export type FinanceDigestOptions = {
   timezone: string;
   lookaheadDays: number;
 };
-

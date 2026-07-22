@@ -75,6 +75,54 @@ assert.match(message, /Total to reserve: Rp420\.500/);
 assert.match(message, /cc-bca: Rp880\.000 due 15 Jul 2026/);
 assert.doesNotMatch(message, /cc-bri/);
 
+const emptyRepository: FinanceDigestRepository = {
+  async readWeeklySpend() {
+    return ok([]);
+  },
+  async readPaymentCalendar() {
+    return ok([]);
+  },
+  async readReceiptQuality() {
+    return ok([]);
+  }
+};
+const empty = await getFinanceDigest(emptyRepository, {
+  now: new Date("2026-07-13T01:00:00.000Z"),
+  timezone: "Asia/Jakarta",
+  lookaheadDays: 14
+});
+assert.deepEqual(empty.weeklySpend, []);
+assert.equal(empty.totalToReserve, 0);
+assert.deepEqual(empty.upcomingPayments, []);
+assert.deepEqual(empty.warnings, []);
+assert.equal(empty.partial, false);
+assert.equal(empty.unavailable, false);
+assert.match(formatFinanceDigest(empty), /No card or paylater spending found/);
+assert.match(formatFinanceDigest(empty), /No payments due in the lookahead window/);
+
+const orderedPayments = await getFinanceDigest(
+  {
+    ...emptyRepository,
+    async readPaymentCalendar() {
+      return ok<PaymentCalendarRow>([
+        { dueDate: "2026-07-13", paymentMethod: "cc-z", amountDue: 30_000 },
+        { dueDate: "2026-07-27", paymentMethod: "cc-end", amountDue: 20_000 },
+        { dueDate: "2026-07-13", paymentMethod: "cc-a", amountDue: 10_000 },
+        { dueDate: "2026-07-28", paymentMethod: "outside-window", amountDue: 40_000 }
+      ]);
+    }
+  },
+  {
+    now: new Date("2026-07-13T01:00:00.000Z"),
+    timezone: "Asia/Jakarta",
+    lookaheadDays: 14
+  }
+);
+assert.deepEqual(
+  orderedPayments.upcomingPayments.map((row) => `${row.dueDate}:${row.paymentMethod}`),
+  ["2026-07-13:cc-a", "2026-07-13:cc-z", "2026-07-27:cc-end"]
+);
+
 const partialRepository: FinanceDigestRepository = {
   ...repository,
   async readPaymentCalendar() {
@@ -139,6 +187,19 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
+  parsePaymentCalendar([
+    ["due_date", "payment_method", "amount_due"],
+    ["not-a-date", "cc-bca", 100_000],
+    ["2026-07-15", "cc-bri", -1],
+    ["2026-07-16", "cc-jenius", "Rp1,2,3"]
+  ]),
+  {
+    rows: [],
+    warnings: ["3 invalid payment calendar row(s) were excluded."]
+  }
+);
+
+assert.deepEqual(
   parseReceiptQuality([
     ["needs_review", "receipt_date", "payment_method"],
     [true, "2026-07-02", ""]
@@ -149,6 +210,17 @@ assert.deepEqual(
 assert.throws(
   () => parseWeeklySpend([["week_start", "week_end", "payment_method"]]),
   /Missing required Sheet header: amount_spent/
+);
+assert.throws(
+  () =>
+    parseWeeklySpend([
+      ["week_start", "week_end", "payment_method", "amount_spent", "amount_spent"]
+    ]),
+  /Duplicate required Sheet header: amount_spent/
+);
+assert.deepEqual(
+  parseWeeklySpend([["week_start", "week_end", "payment_method", "amount_spent"]]),
+  { rows: [], warnings: [] }
 );
 
 assert.deepEqual(detectTaskTrigger("/finance", false), {

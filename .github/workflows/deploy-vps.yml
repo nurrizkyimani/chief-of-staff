@@ -44,6 +44,9 @@ jobs:
       - name: Compile TypeScript
         run: npm run build
 
+      - name: Run tests
+        run: npm test
+
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
