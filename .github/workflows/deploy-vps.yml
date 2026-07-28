@@ -23,6 +23,13 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      DOTENV_CONFIG_PATH: /dev/null
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/openclaw-test-service-account.json
+      RECEIPT_SPREADSHEET_ID: test-only
+      RECEIPT_JOURNAL_PATH: /tmp/openclaw-test-receipt-journal.md
+      RECEIPT_SAVE_JOURNAL: "false"
+      RECEIPT_SAVE_SHEETS: "false"
     defaults:
       run:
         working-directory: openclaw-platform
@@ -44,8 +51,8 @@ jobs:
       - name: Compile TypeScript
         run: npm run build
 
-      - name: Run isolated finance tests
-        run: npm run test:finance
+      - name: Run tests
+        run: npm test
 
   deploy:
     name: Deploy to VPS
