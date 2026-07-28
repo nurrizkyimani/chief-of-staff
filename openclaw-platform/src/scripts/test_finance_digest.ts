@@ -15,6 +15,10 @@ import { detectTaskTrigger } from "../task-router/task-trigger.detector.js";
 import { formatFinanceDigest } from "../usecases/finance-digest/format-finance-digest.js";
 import { getFinanceDigest } from "../usecases/finance-digest/get-finance-digest.js";
 
+globalThis.fetch = (() => {
+  throw new Error("Network access is forbidden in finance unit tests.");
+}) as unknown as typeof fetch;
+
 const ok = <T>(rows: T[], warnings: string[] = []): FinanceSourceResult<T> => ({ rows, warnings });
 
 const repository: FinanceDigestRepository = {
