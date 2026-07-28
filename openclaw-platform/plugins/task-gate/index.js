@@ -254,9 +254,8 @@ function modeUsesTool() {
   return mode === "tool" || mode === "hybrid";
 }
 
-function chatIdFromToolContext(ctx, params) {
+function chatIdFromToolContext(ctx) {
   const candidates = [
-    params?.chat_id,
     ctx?.agentTo,
     ctx?.deliveryContext?.to,
     ctx?.deliveryContext?.conversationId,
@@ -269,6 +268,21 @@ function chatIdFromToolContext(ctx, params) {
     if (raw) return raw;
   }
   return "unknown-chat";
+}
+
+function isAllowedWishlistGroup(chatId) {
+  const allowedGroups = String(process.env.WISHLIST_ALLOWED_GROUPS ?? "")
+    .split(/[,\s]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return allowedGroups.includes("*") || allowedGroups.includes(chatId);
+}
+
+function trustedWishlistChat(event, ctx) {
+  if (event?.channel !== "whatsapp" && ctx?.channelId !== "whatsapp") return null;
+  const chatId = whatsappGroupIdFrom(event, ctx);
+  if (!chatId || !isAllowedWishlistGroup(chatId)) return null;
+  return chatId;
 }
 
 function sourcePlatformFromToolContext(ctx, chatId) {
@@ -360,13 +374,10 @@ export default definePluginEntry({
           })),
           quoted_text: Type.Optional(Type.String({
             description: "Quoted WhatsApp bubble text when the user replied to an existing list/message."
-          })),
-          chat_id: Type.Optional(Type.String({
-            description: "WhatsApp group id if known, for example 120363416177839839@g.us."
           }))
         }),
         async execute(_toolCallId, params) {
-          const chatId = chatIdFromToolContext(ctx, params);
+          const chatId = chatIdFromToolContext(ctx);
           const sourcePlatform = sourcePlatformFromToolContext(ctx, chatId);
           const result = await processWishlistToolAction({
             action: String(params.action ?? "").toLowerCase(),
@@ -442,6 +453,7 @@ export default definePluginEntry({
       }
 
       if (modeUsesTool()) {
+        if (!trustedWishlistChat(event, ctx)) return;
         const text = [
           textFrom(event?.body),
           textFrom(event?.bodyForAgent),
