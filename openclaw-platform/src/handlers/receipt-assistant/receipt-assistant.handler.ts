@@ -4,15 +4,13 @@ import {
 } from "../../usecases/receipt-assistant/process-receipt-assistant.js";
 import { handleReceiptConfirmation } from "../../usecases/receipt-assistant/handle-receipt-confirmation.js";
 import {
-  CALLBACK_CONFIRM_PREFIX,
-  CALLBACK_METHOD_PREFIX,
-  CALLBACK_REJECT_PREFIX,
   parseConfirmationAction
 } from "../../usecases/receipt-assistant/receipt-confirmation-store.js";
 import type { TaskHandler } from "../../task-router/task-handler.js";
 import { handledTaskResult } from "../../task-router/task-handler.js";
 import type { TaskRouterInput, TaskRouterLogger } from "../../task-router/task.types.js";
 import type { TaskTrigger } from "../../task-router/task-trigger.detector.js";
+import { presentReceiptConfirmations } from "./receipt-confirmation.presenter.js";
 
 export const receiptAssistantHandler: TaskHandler = {
   name: "receipt-assistant",
@@ -41,21 +39,7 @@ export const receiptAssistantHandler: TaskHandler = {
     return handledTaskResult({
       suppressReason: trigger.source,
       messages: result.messages,
-      confirmations: result.confirmations.map((confirmation) => ({
-        token: confirmation.token,
-        previewText: confirmation.previewText,
-        paymentMethod: confirmation.paymentMethod,
-        paymentMethodOptions: confirmation.paymentMethodOptions,
-        confirmCommand: `/receipt_confirm ${confirmation.token}`,
-        rejectCommand: `/receipt_reject ${confirmation.token}`,
-        methodCommands: confirmation.paymentMethodOptions.map((paymentMethod) => ({
-          paymentMethod,
-          command: `/receipt_method ${confirmation.token} ${paymentMethod}`,
-          callbackData: `${CALLBACK_METHOD_PREFIX}${confirmation.token}:${paymentMethod}`
-        })),
-        confirmCallbackData: `${CALLBACK_CONFIRM_PREFIX}${confirmation.token}`,
-        rejectCallbackData: `${CALLBACK_REJECT_PREFIX}${confirmation.token}`
-      }))
+      confirmations: presentReceiptConfirmations(result.confirmations)
     });
   }
 };

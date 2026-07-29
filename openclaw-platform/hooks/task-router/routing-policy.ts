@@ -9,6 +9,7 @@ type ModuleId =
   | "receipt-parser-v2"
   | "model-health"
   | "finance-digest"
+  | "gmail-receipt-import"
   | "calory-assistant"
   | "cicilan-assistant"
   | "wealth-assistant"
@@ -136,6 +137,9 @@ export function shouldRunTaskModule(context: TaskRouterContext, policy: Resolved
 
   if (trigger.kind === "model-health") return policy.modules.includes("model-health");
   if (trigger.kind === "finance-digest") return policy.modules.includes("finance-digest");
+  if (trigger.kind === "gmail-receipt-import") {
+    return policy.modules.includes("gmail-receipt-import");
+  }
   if (trigger.kind === "budget-assistant") return policy.modules.includes("budget-assistant");
   if (trigger.kind === "cicilan-assistant" || trigger.kind === "cicilan-confirmation") {
     return policy.modules.includes("cicilan-assistant");

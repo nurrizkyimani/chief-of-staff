@@ -158,6 +158,12 @@ export function getPendingConfirmation(token: string): PendingConfirmation | und
   return pendingConfirmations.get(token);
 }
 
+export function listPendingReceiptIds(): Set<string> {
+  return new Set(
+    [...pendingConfirmations.values()].map((confirmation) => confirmation.payload.receipt_id)
+  );
+}
+
 export function deletePendingConfirmation(token: string): void {
   pendingConfirmations.delete(token);
 }

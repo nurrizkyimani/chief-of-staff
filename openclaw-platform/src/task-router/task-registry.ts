@@ -15,6 +15,7 @@ import {
   wealthConfirmationHandler
 } from "../handlers/wealth-assistant/wealth-assistant.handler.js";
 import { wishlistAssistantHandler } from "../handlers/wishlist-assistant/wishlist-assistant.handler.js";
+import { gmailReceiptImportHandler } from "../handlers/gmail-receipt-import/gmail-receipt-import.handler.js";
 import type { TaskHandler } from "./task-handler.js";
 
 export const taskRegistry: TaskHandler[] = [
@@ -25,6 +26,7 @@ export const taskRegistry: TaskHandler[] = [
   cicilanConfirmationHandler,
   receiptAssistantHandler,
   receiptConfirmationHandler,
+  gmailReceiptImportHandler,
   wishlistAssistantHandler,
   caloryAssistantHandler,
   modelHealthHandler,
