@@ -87,6 +87,7 @@ async function presentConfirmation(
     text: confirmation.previewText,
     token: confirmation.token,
     paymentMethod: confirmation.paymentMethod,
+    optionLabel: confirmation.optionLabel,
     methodButtons: confirmation.methodCommands.map((method) => ({
       text: method.paymentMethod,
       callbackData: method.callbackData
@@ -98,12 +99,13 @@ async function presentConfirmation(
 
 function formatConfirmationFallback(confirmation: TaskConfirmation): string {
   if (!confirmation.paymentMethod) {
+    const optionLabel = confirmation.optionLabel ?? "payment method";
     const methods = confirmation.methodCommands
       .map((method) => `${method.paymentMethod}: ${method.command}`)
       .join("\n");
     return `${confirmation.previewText}
 
-Choose payment method:
+Choose ${optionLabel}:
 ${methods}
 Cancel: ${confirmation.rejectCommand}`;
   }

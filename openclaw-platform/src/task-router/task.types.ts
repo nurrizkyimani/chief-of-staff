@@ -14,6 +14,7 @@ export type TaskConfirmation = {
   previewText: string;
   paymentMethod: string;
   paymentMethodOptions: string[];
+  optionLabel?: string;
   confirmCommand: string;
   rejectCommand: string;
   methodCommands: Array<{

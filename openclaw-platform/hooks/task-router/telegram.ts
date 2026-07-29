@@ -7,6 +7,7 @@ export async function sendTelegramInlineConfirmation(input: {
   text: string;
   token: string;
   paymentMethod: string;
+  optionLabel?: string;
   methodButtons: Array<{
     text: string;
     callbackData: string;
@@ -57,6 +58,7 @@ export async function sendTelegramInlineConfirmation(input: {
 
 function buildConfirmationKeyboard(input: {
   paymentMethod: string;
+  optionLabel?: string;
   methodButtons: Array<{
     text: string;
     callbackData: string;
