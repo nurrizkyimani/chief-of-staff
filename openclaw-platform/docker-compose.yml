@@ -8,6 +8,8 @@ services:
       - .env
     environment:
       OPENCLAW_HOME: /app/.openclaw-home
+      GOG_HOME: /app/.openclaw-home/.gogcli
+      GOG_KEYRING_BACKEND: file
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google-service-account.json
       NODE_OPTIONS: --dns-result-order=ipv4first
     volumes:

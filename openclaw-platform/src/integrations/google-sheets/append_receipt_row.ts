@@ -24,7 +24,7 @@ function toReceiptsRawRow(payload: ReceiptPayload): (string | number | boolean)[
   ];
 }
 
-export async function isDuplicateReceipt(receiptId: string): Promise<boolean> {
+export async function listReceiptIds(): Promise<Set<string>> {
   try {
     const sheets = createSheetsClient();
     const existing = await sheets.spreadsheets.values.get({
@@ -33,13 +33,21 @@ export async function isDuplicateReceipt(receiptId: string): Promise<boolean> {
     });
 
     const values = existing.data.values ?? [];
-    return values.some((row) => row[0] === receiptId);
+    return new Set(
+      values
+        .map((row) => row[0])
+        .filter((receiptId): receiptId is string => typeof receiptId === "string" && Boolean(receiptId))
+    );
   } catch (error) {
     throw new ReceiptError("SHEETS_READ", "Could not read existing receipts from Google Sheets.", {
       cause: error,
       status: getErrorStatus(error)
     });
   }
+}
+
+export async function isDuplicateReceipt(receiptId: string): Promise<boolean> {
+  return (await listReceiptIds()).has(receiptId);
 }
 
 export async function appendReceiptsRawRow(payload: ReceiptPayload): Promise<AppendReceiptResult> {

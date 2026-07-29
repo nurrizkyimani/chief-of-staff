@@ -2,7 +2,7 @@ SHELL := /bin/bash
 OPENCLAW := ./scripts/openclaw-local.sh
 ENV_FILE := .env
 
-.PHONY: help install install-host env-check validate-schema build backfill parity-compare telegram-user-id finance-digest-preview finance-digest-send test-finance \
+.PHONY: help install install-host env-check validate-schema build backfill parity-compare telegram-user-id finance-digest-preview finance-digest-send test-finance test-gmail-receipts \
 	openclaw-version onboard gateway pairing-list-telegram pairing-approve-telegram \
 	logs status health doctor doctor-fix gateway-mode-local security-audit sandbox-enable sandbox-disable sandbox-explain \
 	sandbox-recreate sandbox-network-none sandbox-network-bridge sandbox-network-custom \
@@ -19,6 +19,7 @@ help:
 	@echo "  make parity-compare BASELINE=./baseline.json SANDBOX=./sandbox.json"
 	@echo "  make telegram-user-id"
 	@echo "  make test-finance"
+	@echo "  make test-gmail-receipts"
 	@echo "  make finance-digest-preview"
 	@echo "  make finance-digest-send"
 	@echo "  make openclaw-version"
@@ -81,6 +82,9 @@ telegram-user-id: env-check
 
 test-finance:
 	npm run test:finance
+
+test-gmail-receipts:
+	DOTENV_CONFIG_PATH=/dev/null npm run test:gmail-receipts
 
 finance-digest-preview: env-check
 	npm run finance:digest:preview

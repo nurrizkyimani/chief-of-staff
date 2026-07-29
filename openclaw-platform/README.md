@@ -50,6 +50,13 @@ Fill `.env` values:
 - `FINANCE_DIGEST_TIMEZONE` (default `Asia/Jakarta`)
 - `FINANCE_DIGEST_LOOKAHEAD_DAYS` (default `14`)
 - `FINANCE_DIGEST_TELEGRAM_CHAT_ID` (required only for scheduled/direct delivery)
+- `GMAIL_RECEIPT_ENABLED` (`true` enables the Telegram `/parse` command)
+- `GMAIL_RECEIPT_ACCOUNT` (the Gmail account authorized in `gog`)
+- `GMAIL_RECEIPT_LABEL` (default `OpenClaw/Receipt`)
+- `GMAIL_RECEIPT_LOOKBACK_MINUTES` (default `30`)
+- `GMAIL_RECEIPT_MAX_MESSAGES` (default `20`)
+- `GOG_HOME` (persistent `gog` configuration and token directory)
+- `GOG_KEYRING_PASSWORD` (secret used by the encrypted file keyring)
 - `RECEIPT_MAX_PDF_PAGES` (default `3`)
 - `RECEIPT_ACCEPT_PDF` (`false` = image-first mode, keep PDF code path but disable intake)
 - `RECEIPT_STRICT_MEMORY_ONLY` (`true` = image-only strict in-memory mode)
@@ -170,6 +177,78 @@ Finance digest:
 Album behavior:
 - multiple media attachments in one message are processed independently
 - each media/page gets a deterministic derived `message_id` suffix for idempotency
+
+## Gmail receipt import
+
+The `/parse` command reads recent Gmail attachments through `gog`. It does not
+send mail or change Gmail labels. Google Sheets remains the receipt source of
+truth.
+
+Create the Gmail label:
+
+```text
+OpenClaw/Receipt
+```
+
+Install `gog` on a local host:
+
+```bash
+brew install openclaw/tap/gogcli
+```
+
+The Docker image includes `gog` version `0.19.0`. Docker stores its state under
+`/app/.openclaw-home/.gogcli`, which is part of the existing persistent
+`.openclaw-home` mount.
+
+Authorize Gmail locally:
+
+```bash
+export GOG_HOME="$PWD/.openclaw-home/.gogcli"
+export GOG_KEYRING_BACKEND=file
+export GOG_KEYRING_PASSWORD='use-a-long-random-secret'
+gog auth credentials /absolute/path/to/client_secret.json
+gog auth add you@gmail.com --services gmail --remote
+gog auth doctor --check
+```
+
+Authorize Gmail in the Docker gateway:
+
+```bash
+docker compose cp /absolute/path/to/client_secret.json gateway:/tmp/gmail-oauth-client.json
+docker compose exec gateway gog auth credentials /tmp/gmail-oauth-client.json
+docker compose exec gateway gog auth add you@gmail.com --services gmail --remote
+docker compose exec gateway gog auth doctor --check
+```
+
+Mount the OAuth client file only while you configure authorization. Do not add
+the OAuth client file or `GOG_KEYRING_PASSWORD` to Git.
+
+Set these values, then rebuild the gateway:
+
+```env
+GMAIL_RECEIPT_ENABLED=true
+GMAIL_RECEIPT_ACCOUNT=you@gmail.com
+GMAIL_RECEIPT_LABEL=OpenClaw/Receipt
+GMAIL_RECEIPT_LOOKBACK_MINUTES=30
+GMAIL_RECEIPT_MAX_MESSAGES=20
+GOG_BIN=gog
+GOG_KEYRING_PASSWORD=use-a-long-random-secret
+RECEIPT_ACCEPT_PDF=true
+```
+
+```bash
+docker compose up -d --build gateway
+```
+
+Apply `OpenClaw/Receipt` to receipt messages. Then send `/parse` in the
+personal-finance Telegram chat. The bot sends one normal receipt confirmation
+for each new supported attachment or PDF page.
+
+Run the isolated fixture test:
+
+```bash
+make test-gmail-receipts
+```
 
 ## Weekly finance digest (RFC-006)
 

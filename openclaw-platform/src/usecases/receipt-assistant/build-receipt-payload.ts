@@ -10,7 +10,11 @@ import { readReceiptImage } from "./read-receipt-image.js";
 
 export type ReceiptIntent = "receipt" | "income";
 
-export type ReceiptIntentSource = "media_default" | "receipt_command" | "income_command";
+export type ReceiptIntentSource =
+  | "media_default"
+  | "receipt_command"
+  | "income_command"
+  | "gmail_import";
 
 export type BuildReceiptPayloadInput = {
   sourcePlatform: string;

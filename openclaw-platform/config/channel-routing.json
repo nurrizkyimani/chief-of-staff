@@ -12,7 +12,8 @@
         "cicilan-assistant",
         "wealth-assistant",
         "budget-assistant",
-        "finance-digest"
+        "finance-digest",
+        "gmail-receipt-import"
       ],
       "media": "receipt-parser",
       "unknownText": "ignore"
@@ -53,6 +54,10 @@
     },
     "finance-digest": {
       "type": "finance-digest",
+      "version": "v1"
+    },
+    "gmail-receipt-import": {
+      "type": "gmail-receipt-import",
       "version": "v1"
     },
     "calory-assistant": {
